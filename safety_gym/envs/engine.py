@@ -17,14 +17,6 @@ import sys
 # Distinct colors for different types of objects.
 # For now this is mostly used for visualization.
 # This also affects the vision observation, so if training from pixels.
-COLOR_BOX = np.array([1, 1, 0, 1])
-COLOR_BUTTON = np.array([1, .5, 0, 1])
-COLOR_GOAL = np.array([0, 1, 0, 1])
-COLOR_VASE = np.array([0, 1, 1, 1])
-COLOR_HAZARD = np.array([0, 0, 1, 1])
-COLOR_PILLAR = np.array([.5, .5, 1, 1])
-COLOR_WALL = np.array([.5, .5, .5, 1])
-COLOR_GREMLIN = np.array([0.5, 0, 1, 1])
 COLOR_CIRCLE = np.array([0, 1, 0, 1])
 COLOR_RED = np.array([1, 0, 0, 1])
 
@@ -176,6 +168,7 @@ class Engine(gym.Env, gym.utils.EzPickle):
         'goal_locations': [],  # Fixed locations to override placements
         'goal_keepout': 0.4,  # Keepout radius when placing goals
         'goal_size': 0.3,  # Radius of the goal area (if using task 'goal')
+        'goal_color': np.array([0, 1, 0, 1]),  # Object color
 
         # Box parameters (only used if task == 'push')
         'box_placements': None,  # Box placements list (defaults to full extents)
@@ -184,6 +177,7 @@ class Engine(gym.Env, gym.utils.EzPickle):
         'box_size': 0.2,  # Box half-radius size
         'box_density': 0.001,  # Box density
         'box_null_dist': 2, # Within box_null_dist * box_size radius of box, no box reward given
+        'box_color': np.array([1, 1, 0, 1]),  # Object color
 
         # Reward is distance towards goal plus a constant for being within range of goal
         # reward_distance should be positive to encourage moving towards the goal
@@ -209,6 +203,7 @@ class Engine(gym.Env, gym.utils.EzPickle):
         'buttons_size': 0.1,  # Size of buttons in the scene
         'buttons_cost': 1.0,  # Cost for pressing the wrong button, if constrain_buttons
         'buttons_resampling_delay': 10,  # Buttons have a timeout period (steps) before resampling
+        'buttons_color': np.array([1, .5, 0, 1]),  # Object color
 
         # Circle parameters (only used if task == 'circle')
         'circle_radius': 1.5,
@@ -227,6 +222,7 @@ class Engine(gym.Env, gym.utils.EzPickle):
         'walls_locations': [],  # This should be used and length == walls_num
         'walls_keepout': 0.0,  # This should not be used
         'walls_size': 0.5,  # Should be fixed at fundamental size of the world
+        'walls_color': np.array([.5, .5, .5, 1]),  # Object color
 
         # Constraints - flags which can be turned on
         # By default, no constraints are enabled, and all costs are indicator functions.
@@ -244,6 +240,7 @@ class Engine(gym.Env, gym.utils.EzPickle):
         'hazards_keepout': 0.4,  # Radius of hazard keepout for placement
         'hazards_size': 0.3,  # Radius of hazards
         'hazards_cost': 1.0,  # Cost (per step) for violating the constraint
+        'hazards_color': np.array([0, 0, 1, 1]),  # Object color
 
         # Vases (objects we should not touch)
         'vases_num': 0,  # Number of vases in the world
@@ -262,6 +259,7 @@ class Engine(gym.Env, gym.utils.EzPickle):
         'vases_displace_threshold': 1e-3,  # Threshold for displacement being "real"
         'vases_velocity_cost': 1.0,  # Cost (per step) per m/s of velocity for a vase
         'vases_velocity_threshold': 1e-4,  # Ignore very small velocities
+        'vases_color': np.array([0, 1, 1, 1]),  # Object color
 
         # Pillars (immovable obstacles we should not touch)
         'pillars_num': 0,  # Number of pillars in the world
@@ -271,6 +269,7 @@ class Engine(gym.Env, gym.utils.EzPickle):
         'pillars_size': 0.2,  # Half-size (radius) of pillar objects
         'pillars_height': 0.5,  # Half-height of pillars geoms
         'pillars_cost': 1.0,  # Cost (per step) for being in contact with a pillar
+        'pillars_color': np.array([.5, .5, 1, 1]),  # Object color
 
         # Gremlins (moving objects we should avoid)
         'gremlins_num': 0,  # Number of gremlins in the world
@@ -283,6 +282,7 @@ class Engine(gym.Env, gym.utils.EzPickle):
         'gremlins_contact_cost': 1.0,  # Cost for touching a gremlin
         'gremlins_dist_threshold': 0.2,  # Threshold for cost for being too close
         'gremlins_dist_cost': 1.0,  # Cost for being within distance threshold
+        'gremlins_color': np.array([0.5, 0, 1, 1]),  # Object color
 
         # Frameskip is the number of physics simulation steps per environment step
         # Frameskip is sampled as a binomial distribution
@@ -668,7 +668,7 @@ class Engine(gym.Env, gym.utils.EzPickle):
                           'pos': np.r_[self.layout[name], self.vases_size - self.vases_sink],
                           'rot': self.random_rot(),
                           'group': GROUP_VASE,
-                          'rgba': COLOR_VASE}
+                          'rgba': self.vases_color}
                 world_config['objects'][name] = object
         if self.gremlins_num:
             self._gremlins_rots = dict()
@@ -682,7 +682,7 @@ class Engine(gym.Env, gym.utils.EzPickle):
                           'pos': np.r_[self.layout[name.replace('obj', '')], self.gremlins_size],
                           'rot': self._gremlins_rots[i],
                           'group': GROUP_GREMLIN,
-                          'rgba': COLOR_GREMLIN}
+                          'rgba': self.gremlins_color}
                 world_config['objects'][name] = object
         if self.task == 'push':
             object = {'name': 'box',
@@ -692,7 +692,7 @@ class Engine(gym.Env, gym.utils.EzPickle):
                       'rot': self.random_rot(),
                       'density': self.box_density,
                       'group': GROUP_BOX,
-                      'rgba': COLOR_BOX}
+                      'rgba': self.box_color}
             world_config['objects']['box'] = object
 
         # Extra geoms (immovable objects) to add to the scene
@@ -706,7 +706,7 @@ class Engine(gym.Env, gym.utils.EzPickle):
                     'contype': 0,
                     'conaffinity': 0,
                     'group': GROUP_GOAL,
-                    'rgba': COLOR_GOAL * [1, 1, 1, 0.25]}  # transparent
+                    'rgba': self.goal_color}
             world_config['geoms']['goal'] = geom
         if self.hazards_num:
             for i in range(self.hazards_num):
@@ -719,7 +719,7 @@ class Engine(gym.Env, gym.utils.EzPickle):
                         'contype': 0,
                         'conaffinity': 0,
                         'group': GROUP_HAZARD,
-                        'rgba': COLOR_HAZARD * [1, 1, 1, 0.25]} #0.1]}  # transparent
+                        'rgba': self.hazards_color}
                 world_config['geoms'][name] = geom
         if self.pillars_num:
             for i in range(self.pillars_num):
@@ -730,7 +730,7 @@ class Engine(gym.Env, gym.utils.EzPickle):
                         'rot': self.random_rot(),
                         'type': 'cylinder',
                         'group': GROUP_PILLAR,
-                        'rgba': COLOR_PILLAR}
+                        'rgba': self.pillars_color}
                 world_config['geoms'][name] = geom
         if self.walls_num:
             for i in range(self.walls_num):
@@ -741,7 +741,7 @@ class Engine(gym.Env, gym.utils.EzPickle):
                         'rot': 0,
                         'type': 'box',
                         'group': GROUP_WALL,
-                        'rgba': COLOR_WALL}
+                        'rgba': self.walls_color}
                 world_config['geoms'][name] = geom
         if self.buttons_num:
             for i in range(self.buttons_num):
@@ -752,7 +752,7 @@ class Engine(gym.Env, gym.utils.EzPickle):
                         'rot': self.random_rot(),
                         'type': 'sphere',
                         'group': GROUP_BUTTON,
-                        'rgba': COLOR_BUTTON}
+                        'rgba': self.buttons_color}
                 world_config['geoms'][name] = geom
         if self.task == 'circle':
             geom = {'name': 'circle',
@@ -763,7 +763,7 @@ class Engine(gym.Env, gym.utils.EzPickle):
                     'contype': 0,
                     'conaffinity': 0,
                     'group': GROUP_CIRCLE,
-                    'rgba': COLOR_CIRCLE * [1, 1, 1, 0.1]}
+                    'rgba': COLOR_CIRCLE}
             world_config['geoms']['circle'] = geom
 
 
@@ -778,7 +778,7 @@ class Engine(gym.Env, gym.utils.EzPickle):
                          'pos': np.r_[self.layout[name.replace('mocap', '')], self.gremlins_size],
                          'rot': self._gremlins_rots[i],
                          'group': GROUP_GREMLIN,
-                         'rgba': np.array([1, 1, 1, .1]) * COLOR_GREMLIN}
+                         'rgba': self.gremlins_color}
                          #'rgba': np.array([1, 1, 1, 0]) * COLOR_GREMLIN}
                 world_config['mocaps'][name] = mocap
 
