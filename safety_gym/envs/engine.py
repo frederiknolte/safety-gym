@@ -220,6 +220,9 @@ class Engine(gym.Env, gym.utils.EzPickle):
         'sensors_ball_joints': True,  # Observe named balljoint position / velocity sensors
         'sensors_angle_components': True,  # Observe sin/cos theta instead of theta
 
+        # Ground Truth Observation
+        'observe_groundtruth': False,
+
         # Walls - barriers in the environment not associated with any constraint
         # NOTE: this is probably best to be auto-generated than manually specified
         'walls_num': 0,  # Number of walls
@@ -379,9 +382,19 @@ class Engine(gym.Env, gym.utils.EzPickle):
         return [self.data.get_body_xpos(f'vase{p}').copy() for p in range(self.vases_num)]
 
     @property
+    def vases_velp(self):
+        ''' Helper to get the list of vase positions '''
+        return [self.data.get_body_xvelp(f'vase{p}').copy() for p in range(self.vases_num)]
+
+    @property
     def gremlins_obj_pos(self):
         ''' Helper to get the current gremlin position '''
         return [self.data.get_body_xpos(f'gremlin{i}obj').copy() for i in range(self.gremlins_num)]
+
+    @property
+    def gremlins_obj_velp(self):
+        ''' Helper to get the current gremlin position '''
+        return [self.data.get_body_xvelp(f'gremlin{i}obj').copy() for i in range(self.gremlins_num)]
 
     @property
     def pillars_pos(self):
@@ -482,7 +495,21 @@ class Engine(gym.Env, gym.utils.EzPickle):
             width, height = self.vision_size
             rows, cols = height, width
             self.vision_size = (rows, cols)
-            obs_space_dict['vision'] = gym.spaces.Box(0, 1.0, self.vision_size + (3,), dtype=np.float32)
+            obs_space_dict['vision'] = gym.spaces.Box(0, 1.0, (3,) + self.vision_size, dtype=np.float32)
+        if self.observe_groundtruth:
+            num_objects = 5  # number of all constrainable objects
+            obs_space_dict['robot_gt_pos'] = gym.spaces.Box(-np.inf, np.inf, (3,), dtype=np.float32)
+            obs_space_dict['goal_gt_pos'] = gym.spaces.Box(-np.inf, np.inf, (3,), dtype=np.float32)
+            if self.hazards_num > 0:
+                obs_space_dict['hazards_gt'] = gym.spaces.Box(-np.inf, np.inf, (self.hazards_num * 3,), dtype=np.float32)
+            if self.vases_num > 0:
+                obs_space_dict['vases_gt'] = gym.spaces.Box(-np.inf, np.inf, (self.vases_num * (3 + 9),), dtype=np.float32)
+            if self.pillars_num > 0:
+                obs_space_dict['pillars_gt'] = gym.spaces.Box(-np.inf, np.inf, (self.pillars_num * 3,), dtype=np.float32)
+            if self.gremlins_num > 0:
+                obs_space_dict['gremlins_gt'] = gym.spaces.Box(-np.inf, np.inf, (self.gremlins_num * (3 + 9),), dtype=np.float32)
+            if self.buttons_num > 0:
+                obs_space_dict['buttons_gt'] = gym.spaces.Box(-np.inf, np.inf, (self.buttons_num * 3,), dtype=np.float32)
         # Flatten it ourselves
         self.obs_space_dict = obs_space_dict
         if self.observation_flatten:
@@ -1118,6 +1145,43 @@ class Engine(gym.Env, gym.utils.EzPickle):
             obs['ctrl'] = self.data.ctrl.copy()
         if self.observe_vision:
             obs['vision'] = self.obs_vision()
+        if self.observe_groundtruth:
+            num_objects = 5  # number of all constrainable objects
+            obs['robot_gt_pos'] = self.robot_pos
+            obs['goal_gt_pos'] = self.goal_pos
+            if self.hazards_num > 0:
+                # hazards_gt = np.zeros((self.hazards_num, num_objects))
+                # hazards_gt[:, 0] = 1.
+                # hazards_gt = np.concatenate([hazards_gt, self.hazards_pos], axis=-1)
+                # obs['hazards_gt'] = hazards_gt.flatten()
+                obs['hazards_gt'] = np.array(self.hazards_pos).flatten()
+            if self.vases_num > 0:
+                # vases_gt = np.zeros((self.vases_num, num_objects))
+                # vases_gt[:, 1] = 1.
+                vases_velp = np.reshape(self.vases_velp, (self.vases_num, -1))
+                # vases_gt = np.concatenate([vases_gt, self.vases_pos, vases_velp], axis=-1)
+                vases_gt = np.concatenate([self.vases_pos, vases_velp], axis=-1)
+                obs['vases_gt'] = vases_gt.flatten()
+            if self.pillars_num > 0:
+                # pillars_gt = np.zeros((self.pillars_num, num_objects))
+                # pillars_gt[:, 2] = 1.
+                # pillars_gt = np.concatenate([pillars_gt, self.pillars_pos], axis=-1)
+                # obs['pillars_gt'] = pillars_gt.flatten()
+                obs['pillars_gt'] = np.array(self.pillars_pos).flatten()
+            if self.gremlins_num > 0:
+                # gremlins_gt = np.zeros((self.gremlins_num, num_objects))
+                # gremlins_gt[:, 3] = 1.
+                gremlins_velp = np.reshape(self.gremlins_obj_velp, (self.gremlins_num, -1))
+                # gremlins_gt = np.concatenate([gremlins_gt, self.gremlins_obj_pos, gremlins_velp], axis=-1)
+                gremlins_gt = np.concatenate([self.gremlins_obj_pos, gremlins_velp], axis=-1)
+                obs['gremlins_gt'] = gremlins_gt.flatten()
+            if self.buttons_num > 0:
+                # buttons_gt = np.zeros((self.buttons_num, num_objects))
+                # buttons_gt[:, 4] = 1.
+                # buttons_gt = np.concatenate([buttons_gt, self.buttons_pos], axis=-1)
+                # obs['buttons_gt'] = buttons_gt.flatten()
+                obs['buttons_gt'] = np.array(self.buttons_pos).flatten()
+
         if self.observation_flatten:
             flat_obs = np.zeros(self.obs_flat_size)
             offset = 0
