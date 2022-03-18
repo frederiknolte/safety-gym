@@ -87,6 +87,7 @@ class Engine(gym.Env, gym.utils.EzPickle):
 
     # Default configuration (this should not be nested since it gets copied)
     DEFAULT = {
+        'name': 'SafetyGym',  # Name of the env
         'num_steps': 1000,  # Maximum number of environment steps in an episode
 
         'action_noise': 0.0,  # Magnitude of independent per-component gaussian action noise
@@ -139,7 +140,7 @@ class Engine(gym.Env, gym.utils.EzPickle):
 
         # Render options
         'render_labels': False,
-        'render_lidar_markers': True,
+        'render_lidar_markers': False,
         'render_lidar_radius': 0.15, 
         'render_lidar_size': 0.025, 
         'render_lidar_offset_init': 0.5, 
@@ -149,6 +150,7 @@ class Engine(gym.Env, gym.utils.EzPickle):
         'vision_size': (60, 40),  # Size (width, height) of vision observation; gets flipped internally to (rows, cols) format
         'vision_render': True,  # Render vision observation in the viewer
         'vision_render_size': (300, 200),  # Size to render the vision in the viewer
+        'camera_name': 'vision',  # Name of the camera that is used for rendering the observations (!= the rendering for human)
 
         # Lidar observation parameters
         'lidar_num_bins': 10,  # Bins (around a full circle) for lidar sensing
@@ -173,7 +175,7 @@ class Engine(gym.Env, gym.utils.EzPickle):
         # Box parameters (only used if task == 'push')
         'box_placements': None,  # Box placements list (defaults to full extents)
         'box_locations': [],  # Fixed locations to override placements
-        'box_keepout': 0.2,  # Box keepout radius for placement
+        'box_keepout': 0.3,  # Box keepout radius for placement
         'box_size': 0.2,  # Box half-radius size
         'box_density': 0.001,  # Box density
         'box_null_dist': 2, # Within box_null_dist * box_size radius of box, no box reward given
@@ -237,7 +239,7 @@ class Engine(gym.Env, gym.utils.EzPickle):
         'hazards_num': 0,  # Number of hazards in an environment
         'hazards_placements': None,  # Placements list for hazards (defaults to full extents)
         'hazards_locations': [],  # Fixed locations to override placements
-        'hazards_keepout': 0.4,  # Radius of hazard keepout for placement
+        'hazards_keepout': 0.2,  # Radius of hazard keepout for placement
         'hazards_size': 0.3,  # Radius of hazards
         'hazards_cost': 1.0,  # Cost (per step) for violating the constraint
         'hazards_color': np.array([0, 0, 1, 1]),  # Object color
@@ -549,6 +551,7 @@ class Engine(gym.Env, gym.utils.EzPickle):
     def seed(self, seed=None):
         ''' Set internal random state seeds '''
         self._seed = np.random.randint(2**32) if seed is None else seed
+        self.rs = np.random.RandomState(self._seed)
 
     def build_layout(self):
         ''' Rejection sample a placement of objects to find a layout. '''
@@ -869,8 +872,8 @@ class Engine(gym.Env, gym.utils.EzPickle):
 
     def reset(self):
         ''' Reset the physics simulation and return observation '''
-        self._seed += 1  # Increment seed
-        self.rs = np.random.RandomState(self._seed)
+        # self._seed += 1  # Increment seed
+        # self.rs = np.random.RandomState(self._seed)
         self.done = False
         self.steps = 0  # Count of steps taken in this episode
         # Set the button timer to zero (so button is immediately visible)
@@ -1122,7 +1125,6 @@ class Engine(gym.Env, gym.utils.EzPickle):
         assert self.observation_space.contains(obs), f'Bad obs {obs} {self.observation_space}'
         return obs
 
-
     def cost(self):
         ''' Calculate the current costs and return a dict '''
         self.sim.forward()  # Ensure positions and contacts are correct
@@ -1196,7 +1198,7 @@ class Engine(gym.Env, gym.utils.EzPickle):
     def goal_met(self):
         ''' Return true if the current goal is met this step '''
         if self.task == 'goal':
-            return self.dist_goal() <= self.goal_size
+            return self.dist_goal() <= self.goal_size #+ 0.08  # TODO remove 0.08
         if self.task == 'push':
             return self.dist_box_goal() <= self.goal_size
         if self.task == 'button':
