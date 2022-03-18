@@ -165,6 +165,9 @@ class Engine(gym.Env, gym.utils.EzPickle):
         # Task
         'task': 'goal',  # goal, button, push, x, z, circle, or none (for screenshots)
 
+        # Rewards
+        'add_cost_to_reward': False,  # adds all costs to rewards if True
+
         # Goal parameters
         'goal_placements': None,  # Placements where goal may appear (defaults to full extents)
         'goal_locations': [],  # Fixed locations to override placements
@@ -1182,7 +1185,7 @@ class Engine(gym.Env, gym.utils.EzPickle):
             for h_pos in self.hazards_pos:
                 h_dist = self.dist_xy(h_pos)
                 if h_dist <= self.hazards_size:
-                    cost['cost_hazards'] += self.hazards_cost * (self.hazards_size - h_dist)
+                    cost['cost_hazards'] += self.hazards_cost  #  * (self.hazards_size - h_dist)
 
         # Sum all costs into single total cost
         cost['cost'] = sum(v for k, v in cost.items() if k.startswith('cost_'))
@@ -1299,10 +1302,16 @@ class Engine(gym.Env, gym.utils.EzPickle):
                 else:
                     self.done = True
 
+            else:
+                info['goal_met'] = False
+
         # Timeout
         self.steps += 1
         if self.steps >= self.num_steps:
             self.done = True  # Maximum number of steps in an episode reached
+
+        if self.add_cost_to_reward:
+            reward -= info['cost']
 
         return self.obs(), reward, self.done, info
 
