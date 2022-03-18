@@ -1522,41 +1522,41 @@ class Engine(gym.Env, gym.utils.EzPickle):
             offset = self.render_lidar_offset_init  # Height offset for successive lidar indicators
             if 'box_lidar' in self.obs_space_dict or 'box_compass' in self.obs_space_dict:
                 if 'box_lidar' in self.obs_space_dict:
-                    self.render_lidar([self.box_pos], COLOR_BOX, offset, GROUP_BOX)
+                    self.render_lidar([self.box_pos], self.boxes_color, offset, GROUP_BOX)
                 if 'box_compass' in self.obs_space_dict:
-                    self.render_compass(self.box_pos, COLOR_BOX, offset)
+                    self.render_compass(self.box_pos, self.boxes_color, offset)
                 offset += self.render_lidar_offset_delta
             if 'goal_lidar' in self.obs_space_dict or 'goal_compass' in self.obs_space_dict:
                 if 'goal_lidar' in self.obs_space_dict:
-                    self.render_lidar([self.goal_pos], COLOR_GOAL, offset, GROUP_GOAL)
+                    self.render_lidar([self.goal_pos], self.goal_color, offset, GROUP_GOAL)
                 if 'goal_compass' in self.obs_space_dict:
-                    self.render_compass(self.goal_pos, COLOR_GOAL, offset)
+                    self.render_compass(self.goal_pos, self.goal_color, offset)
                 offset += self.render_lidar_offset_delta
             if 'buttons_lidar' in self.obs_space_dict:
-                self.render_lidar(self.buttons_pos, COLOR_BUTTON, offset, GROUP_BUTTON)
+                self.render_lidar(self.buttons_pos, self.buttons_color, offset, GROUP_BUTTON)
                 offset += self.render_lidar_offset_delta
             if 'circle_lidar' in self.obs_space_dict:
                 self.render_lidar([ORIGIN_COORDINATES], COLOR_CIRCLE, offset, GROUP_CIRCLE)
                 offset += self.render_lidar_offset_delta
             if 'walls_lidar' in self.obs_space_dict:
-                self.render_lidar(self.walls_pos, COLOR_WALL, offset, GROUP_WALL)
+                self.render_lidar(self.walls_pos, self.walls_color, offset, GROUP_WALL)
                 offset += self.render_lidar_offset_delta
             if 'hazards_lidar' in self.obs_space_dict:
-                self.render_lidar(self.hazards_pos, COLOR_HAZARD, offset, GROUP_HAZARD)
+                self.render_lidar(self.hazards_pos, self.hazards_color, offset, GROUP_HAZARD)
                 offset += self.render_lidar_offset_delta
             if 'pillars_lidar' in self.obs_space_dict:
-                self.render_lidar(self.pillars_pos, COLOR_PILLAR, offset, GROUP_PILLAR)
+                self.render_lidar(self.pillars_pos, self.pillars_color, offset, GROUP_PILLAR)
                 offset += self.render_lidar_offset_delta
             if 'gremlins_lidar' in self.obs_space_dict:
-                self.render_lidar(self.gremlins_obj_pos, COLOR_GREMLIN, offset, GROUP_GREMLIN)
+                self.render_lidar(self.gremlins_obj_pos, self.gremlins_color, offset, GROUP_GREMLIN)
                 offset += self.render_lidar_offset_delta
             if 'vases_lidar' in self.obs_space_dict:
-                self.render_lidar(self.vases_pos, COLOR_VASE, offset, GROUP_VASE)
+                self.render_lidar(self.vases_pos, self.vases_color, offset, GROUP_VASE)
                 offset += self.render_lidar_offset_delta
 
         # Add goal marker
         if self.task == 'button':
-            self.render_area(self.goal_pos, self.buttons_size * 2, COLOR_BUTTON, 'goal', alpha=0.1)
+            self.render_area(self.goal_pos, self.buttons_size * 2, self.buttons_color, 'goal', alpha=0.1)
 
         # Add indicator for nonzero cost
         if self._cost.get('cost', 0) > 0:
