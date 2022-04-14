@@ -1522,9 +1522,9 @@ class Engine(gym.Env, gym.utils.EzPickle):
             offset = self.render_lidar_offset_init  # Height offset for successive lidar indicators
             if 'box_lidar' in self.obs_space_dict or 'box_compass' in self.obs_space_dict:
                 if 'box_lidar' in self.obs_space_dict:
-                    self.render_lidar([self.box_pos], self.boxes_color, offset, GROUP_BOX)
+                    self.render_lidar([self.box_pos], self.box_color, offset, GROUP_BOX)
                 if 'box_compass' in self.obs_space_dict:
-                    self.render_compass(self.box_pos, self.boxes_color, offset)
+                    self.render_compass(self.box_pos, self.box_color, offset)
                 offset += self.render_lidar_offset_delta
             if 'goal_lidar' in self.obs_space_dict or 'goal_compass' in self.obs_space_dict:
                 if 'goal_lidar' in self.obs_space_dict:
