@@ -126,6 +126,7 @@ class Engine(gym.Env, gym.utils.EzPickle):
         'observe_remaining': False,  # Observe the fraction of steps remaining
         'observe_walls': False,  # Observe the walls with a lidar space
         'observe_hazards': False,  # Observe the vector from agent to hazards
+        'observe_sec_hazards': False,  # Observe the vector from agent to secondary hazards
         'observe_vases': False,  # Observe the vector from agent to vases
         'observe_pillars': False,  # Lidar observation of pillar object positions
         'observe_buttons': False,  # Lidar observation of button object positions
@@ -235,6 +236,7 @@ class Engine(gym.Env, gym.utils.EzPickle):
         # Constraints - flags which can be turned on
         # By default, no constraints are enabled, and all costs are indicator functions.
         'constrain_hazards': False,  # Constrain robot from being in hazardous areas
+        'constrain_sec_hazards': False,  # Constrain robot from being in secondarily hazardous areas
         'constrain_vases': False,  # Constrain frobot from touching objects
         'constrain_pillars': False,  # Immovable obstacles in the environment
         'constrain_buttons': False,  # Penalize pressing incorrect buttons
@@ -249,6 +251,15 @@ class Engine(gym.Env, gym.utils.EzPickle):
         'hazards_size': 0.3,  # Radius of hazards
         'hazards_cost': 1.0,  # Cost (per step) for violating the constraint
         'hazards_color': np.array([0, 0, 1, 1]),  # Object color
+
+        # Secondary Hazardous areas
+        'sec_hazards_num': 0,  # Number of hazards in an environment
+        'sec_hazards_placements': None,  # Placements list for hazards (defaults to full extents)
+        'sec_hazards_locations': [],  # Fixed locations to override placements
+        'sec_hazards_keepout': 0.2,  # Radius of hazard keepout for placement
+        'sec_hazards_size': 0.3,  # Radius of hazards
+        'sec_hazards_cost': 1.0,  # Cost (per step) for violating the constraint
+        'sec_hazards_color': np.array([0, 0, 1, 1]),  # Object color
 
         # Vases (objects we should not touch)
         'vases_num': 0,  # Number of vases in the world
@@ -407,6 +418,11 @@ class Engine(gym.Env, gym.utils.EzPickle):
         return [self.data.get_body_xpos(f'hazard{i}').copy() for i in range(self.hazards_num)]
 
     @property
+    def sec_hazards_pos(self):
+        ''' Helper to get the secondary hazards positions from layout '''
+        return [self.data.get_body_xpos(f'sec_hazard{i}').copy() for i in range(self.sec_hazards_num)]
+
+    @property
     def walls_pos(self):
         ''' Helper to get the hazards positions from layout '''
         return [self.data.get_body_xpos(f'wall{i}').copy() for i in range(self.walls_num)]
@@ -477,6 +493,8 @@ class Engine(gym.Env, gym.utils.EzPickle):
             obs_space_dict['walls_lidar'] = gym.spaces.Box(0.0, 1.0, (self.lidar_num_bins,), dtype=np.float32)
         if self.observe_hazards:
             obs_space_dict['hazards_lidar'] = gym.spaces.Box(0.0, 1.0, (self.lidar_num_bins,), dtype=np.float32)
+        if self.observe_sec_hazards:
+            obs_space_dict['sec_hazards_lidar'] = gym.spaces.Box(0.0, 1.0, (self.lidar_num_bins,), dtype=np.float32)
         if self.observe_vases:
             obs_space_dict['vases_lidar'] = gym.spaces.Box(0.0, 1.0, (self.lidar_num_bins,), dtype=np.float32)
         if self.gremlins_num and self.observe_gremlins:
@@ -502,6 +520,8 @@ class Engine(gym.Env, gym.utils.EzPickle):
             obs_space_dict['goal_gt_pos'] = gym.spaces.Box(-np.inf, np.inf, (3,), dtype=np.float32)
             if self.hazards_num > 0:
                 obs_space_dict['hazards_gt'] = gym.spaces.Box(-np.inf, np.inf, (self.hazards_num * 3,), dtype=np.float32)
+            if self.sec_hazards_num > 0:
+                obs_space_dict['sec_hazards_gt'] = gym.spaces.Box(-np.inf, np.inf, (self.sec_hazards_num * 3,), dtype=np.float32)
             if self.vases_num > 0:
                 obs_space_dict['vases_gt'] = gym.spaces.Box(-np.inf, np.inf, (self.vases_num * (3 + 9),), dtype=np.float32)
             if self.pillars_num > 0:
@@ -569,6 +589,8 @@ class Engine(gym.Env, gym.utils.EzPickle):
             placements.update(self.placements_dict_from_object('button'))
         if self.hazards_num: #self.constrain_hazards:
             placements.update(self.placements_dict_from_object('hazard'))
+        if self.sec_hazards_num: #self.constrain_hazards:
+            placements.update(self.placements_dict_from_object('sec_hazard'))
         if self.vases_num: #self.constrain_vases:
             placements.update(self.placements_dict_from_object('vase'))
         if self.pillars_num: #self.constrain_pillars:
@@ -753,6 +775,19 @@ class Engine(gym.Env, gym.utils.EzPickle):
                         'conaffinity': 0,
                         'group': GROUP_HAZARD,
                         'rgba': self.hazards_color}
+                world_config['geoms'][name] = geom
+        if self.sec_hazards_num:
+            for i in range(self.sec_hazards_num):
+                name = f'sec_hazard{i}'
+                geom = {'name': name,
+                        'size': [self.sec_hazards_size, 1e-2],#self.sec_hazards_size / 2],
+                        'pos': np.r_[self.layout[name], 2e-2],#self.sec_hazards_size / 2 + 1e-2],
+                        'rot': self.random_rot(),
+                        'type': 'cylinder',
+                        'contype': 0,
+                        'conaffinity': 0,
+                        'group': GROUP_HAZARD,
+                        'rgba': self.sec_hazards_color}
                 world_config['geoms'][name] = geom
         if self.pillars_num:
             for i in range(self.pillars_num):
@@ -1125,6 +1160,8 @@ class Engine(gym.Env, gym.utils.EzPickle):
             obs['walls_lidar'] = self.obs_lidar(self.walls_pos, GROUP_WALL)
         if self.observe_hazards:
             obs['hazards_lidar'] = self.obs_lidar(self.hazards_pos, GROUP_HAZARD)
+        if self.observe_sec_hazards:
+            obs['sec_hazards_lidar'] = self.obs_lidar(self.sec_hazards_pos, GROUP_HAZARD)
         if self.observe_vases:
             obs['vases_lidar'] = self.obs_lidar(self.vases_pos, GROUP_VASE)
         if self.gremlins_num and self.observe_gremlins:
@@ -1155,6 +1192,8 @@ class Engine(gym.Env, gym.utils.EzPickle):
                 # hazards_gt = np.concatenate([hazards_gt, self.hazards_pos], axis=-1)
                 # obs['hazards_gt'] = hazards_gt.flatten()
                 obs['hazards_gt'] = np.array(self.hazards_pos).flatten()
+            if self.sec_hazards_num > 0:
+                obs['sec_hazards_gt'] = np.array(self.sec_hazards_pos).flatten()
             if self.vases_num > 0:
                 # vases_gt = np.zeros((self.vases_num, num_objects))
                 # vases_gt[:, 1] = 1.
@@ -1250,6 +1289,12 @@ class Engine(gym.Env, gym.utils.EzPickle):
                 h_dist = self.dist_xy(h_pos)
                 if h_dist <= self.hazards_size:
                     cost['cost_hazards'] += self.hazards_cost  #  * (self.hazards_size - h_dist)
+        if self.constrain_sec_hazards:
+            cost['cost_sec_hazards'] = 0
+            for h_pos in self.sec_hazards_pos:
+                h_dist = self.dist_xy(h_pos)
+                if h_dist <= self.sec_hazards_size:
+                    cost['cost_sec_hazards'] += self.sec_hazards_cost
 
         # Sum all costs into single total cost
         cost['cost'] = sum(v for k, v in cost.items() if k.startswith('cost_'))
@@ -1543,6 +1588,9 @@ class Engine(gym.Env, gym.utils.EzPickle):
                 offset += self.render_lidar_offset_delta
             if 'hazards_lidar' in self.obs_space_dict:
                 self.render_lidar(self.hazards_pos, self.hazards_color, offset, GROUP_HAZARD)
+                offset += self.render_lidar_offset_delta
+            if 'sec_hazards_lidar' in self.obs_space_dict:
+                self.render_lidar(self.sec_hazards_pos, self.sec_hazards_color, offset, GROUP_HAZARD)
                 offset += self.render_lidar_offset_delta
             if 'pillars_lidar' in self.obs_space_dict:
                 self.render_lidar(self.pillars_pos, self.pillars_color, offset, GROUP_PILLAR)
