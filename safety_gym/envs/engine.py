@@ -223,6 +223,7 @@ class Engine(gym.Env, gym.utils.EzPickle):
 
         # Ground Truth Observation
         'observe_groundtruth': False,
+        'observe_groundtruth_vectors': False,
 
         # Walls - barriers in the environment not associated with any constraint
         # NOTE: this is probably best to be auto-generated than manually specified
@@ -515,7 +516,6 @@ class Engine(gym.Env, gym.utils.EzPickle):
             self.vision_size = (rows, cols)
             obs_space_dict['vision'] = gym.spaces.Box(0, 1.0, (3,) + self.vision_size, dtype=np.float32)
         if self.observe_groundtruth:
-            num_objects = 5  # number of all constrainable objects
             obs_space_dict['robot_gt_pos'] = gym.spaces.Box(-np.inf, np.inf, (3,), dtype=np.float32)
             obs_space_dict['goal_gt_pos'] = gym.spaces.Box(-np.inf, np.inf, (3,), dtype=np.float32)
             if self.hazards_num > 0:
@@ -530,6 +530,11 @@ class Engine(gym.Env, gym.utils.EzPickle):
                 obs_space_dict['gremlins_gt'] = gym.spaces.Box(-np.inf, np.inf, (self.gremlins_num * (3 + 9),), dtype=np.float32)
             if self.buttons_num > 0:
                 obs_space_dict['buttons_gt'] = gym.spaces.Box(-np.inf, np.inf, (self.buttons_num * 3,), dtype=np.float32)
+        if self.observe_groundtruth_vectors:
+            num_objects = 6
+            obs_space_dict['vision'] = gym.spaces.Box(-np.inf, np.inf, (2 + self.hazards_num + self.sec_hazards_num + self.vases_num +
+                                                                        self.pillars_num, num_objects + 2), dtype=np.float32)
+
         # Flatten it ourselves
         self.obs_space_dict = obs_space_dict
         if self.observation_flatten:
@@ -1183,43 +1188,63 @@ class Engine(gym.Env, gym.utils.EzPickle):
         if self.observe_vision:
             obs['vision'] = self.obs_vision()
         if self.observe_groundtruth:
-            num_objects = 5  # number of all constrainable objects
             obs['robot_gt_pos'] = self.robot_pos
             obs['goal_gt_pos'] = self.goal_pos
             if self.hazards_num > 0:
-                # hazards_gt = np.zeros((self.hazards_num, num_objects))
-                # hazards_gt[:, 0] = 1.
-                # hazards_gt = np.concatenate([hazards_gt, self.hazards_pos], axis=-1)
-                # obs['hazards_gt'] = hazards_gt.flatten()
                 obs['hazards_gt'] = np.array(self.hazards_pos).flatten()
             if self.sec_hazards_num > 0:
                 obs['sec_hazards_gt'] = np.array(self.sec_hazards_pos).flatten()
             if self.vases_num > 0:
-                # vases_gt = np.zeros((self.vases_num, num_objects))
-                # vases_gt[:, 1] = 1.
                 vases_velp = np.reshape(self.vases_velp, (self.vases_num, -1))
-                # vases_gt = np.concatenate([vases_gt, self.vases_pos, vases_velp], axis=-1)
                 vases_gt = np.concatenate([self.vases_pos, vases_velp], axis=-1)
                 obs['vases_gt'] = vases_gt.flatten()
             if self.pillars_num > 0:
-                # pillars_gt = np.zeros((self.pillars_num, num_objects))
-                # pillars_gt[:, 2] = 1.
-                # pillars_gt = np.concatenate([pillars_gt, self.pillars_pos], axis=-1)
-                # obs['pillars_gt'] = pillars_gt.flatten()
                 obs['pillars_gt'] = np.array(self.pillars_pos).flatten()
             if self.gremlins_num > 0:
-                # gremlins_gt = np.zeros((self.gremlins_num, num_objects))
-                # gremlins_gt[:, 3] = 1.
                 gremlins_velp = np.reshape(self.gremlins_obj_velp, (self.gremlins_num, -1))
-                # gremlins_gt = np.concatenate([gremlins_gt, self.gremlins_obj_pos, gremlins_velp], axis=-1)
                 gremlins_gt = np.concatenate([self.gremlins_obj_pos, gremlins_velp], axis=-1)
                 obs['gremlins_gt'] = gremlins_gt.flatten()
             if self.buttons_num > 0:
-                # buttons_gt = np.zeros((self.buttons_num, num_objects))
-                # buttons_gt[:, 4] = 1.
-                # buttons_gt = np.concatenate([buttons_gt, self.buttons_pos], axis=-1)
-                # obs['buttons_gt'] = buttons_gt.flatten()
                 obs['buttons_gt'] = np.array(self.buttons_pos).flatten()
+        if self.observe_groundtruth_vectors:
+            num_objects = 6  # number of all constrainable objects
+            obs['vision'] = []
+
+            robot_gt = np.zeros((1, num_objects))
+            robot_gt[:, 0] = 1.
+            robot_gt = np.concatenate([robot_gt, self.robot_pos], axis=-1)
+            obs['vision'].append(robot_gt)
+
+            goal_gt = np.zeros((1, num_objects))
+            goal_gt[:, 1] = 1.
+            goal_gt = np.concatenate([goal_gt, self.goal_pos], axis=-1)
+            obs['vision'].append(goal_gt)
+
+            if self.hazards_num > 0:
+                hazards_gt = np.zeros((self.hazards_num, num_objects))
+                hazards_gt[:, 2] = 1.
+                hazards_gt = np.concatenate([hazards_gt, self.hazards_pos], axis=-1)
+                obs['vision'].append(hazards_gt)
+            if self.sec_hazards_num > 0:
+                sec_hazards_gt = np.zeros((self.sec_hazards_num, num_objects))
+                sec_hazards_gt[:, 3] = 1.
+                sec_hazards_gt = np.concatenate([sec_hazards_gt, self.sec_hazards_pos], axis=1)
+                obs['vision'].append(sec_hazards_gt)
+            if self.vases_num > 0:
+                vases_gt = np.zeros((self.vases_num, num_objects))
+                vases_gt[:, 4] = 1.
+                vases_gt = np.concatenate([vases_gt, self.vases_pos], axis=-1)
+                obs['vision'].append(vases_gt)
+            if self.pillars_num > 0:
+                pillars_gt = np.zeros((self.pillars_num, num_objects))
+                pillars_gt[:, 5] = 1.
+                pillars_gt = np.concatenate([pillars_gt, self.pillars_pos], axis=-1)
+                obs['vision'].append(pillars_gt)
+
+            # shuffle object representations
+            obs['vision'] = np.stack(obs['vision'], axis=0)
+            shuffle_idx = self.rs.rand(obs['vision'].shape[0]).argsort()
+            obs['vision'] = obs['vision'][shuffle_idx]
 
         if self.observation_flatten:
             flat_obs = np.zeros(self.obs_flat_size)
