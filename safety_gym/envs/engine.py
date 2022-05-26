@@ -533,7 +533,7 @@ class Engine(gym.Env, gym.utils.EzPickle):
         if self.observe_groundtruth_vectors:
             num_objects = 6
             obs_space_dict['vision'] = gym.spaces.Box(-np.inf, np.inf, (2 + self.hazards_num + self.sec_hazards_num + self.vases_num +
-                                                                        self.pillars_num, num_objects + 2), dtype=np.float32)
+                                                                        self.pillars_num, num_objects + 3), dtype=np.float32)
 
         # Flatten it ourselves
         self.obs_space_dict = obs_space_dict
@@ -1212,12 +1212,12 @@ class Engine(gym.Env, gym.utils.EzPickle):
 
             robot_gt = np.zeros((1, num_objects))
             robot_gt[:, 0] = 1.
-            robot_gt = np.concatenate([robot_gt, self.robot_pos], axis=-1)
+            robot_gt = np.concatenate([robot_gt, np.expand_dims(np.array(self.robot_pos), axis=0)], axis=-1)
             obs['vision'].append(robot_gt)
 
             goal_gt = np.zeros((1, num_objects))
             goal_gt[:, 1] = 1.
-            goal_gt = np.concatenate([goal_gt, self.goal_pos], axis=-1)
+            goal_gt = np.concatenate([goal_gt, np.expand_dims(np.array(self.goal_pos), axis=0)], axis=-1)
             obs['vision'].append(goal_gt)
 
             if self.hazards_num > 0:
@@ -1242,7 +1242,7 @@ class Engine(gym.Env, gym.utils.EzPickle):
                 obs['vision'].append(pillars_gt)
 
             # shuffle object representations
-            obs['vision'] = np.stack(obs['vision'], axis=0)
+            obs['vision'] = np.concatenate(obs['vision'], axis=0)
             shuffle_idx = self.rs.rand(obs['vision'].shape[0]).argsort()
             obs['vision'] = obs['vision'][shuffle_idx]
 
