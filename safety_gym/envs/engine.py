@@ -20,6 +20,14 @@ import sys
 COLOR_CIRCLE = np.array([0, 1, 0, 1])
 COLOR_RED = np.array([1, 0, 0, 1])
 
+# Vector representations when ground truth vector representations should be returned
+HAZARDS_VEC = np.array([-0.3202, -0.3363, -0.8096, -0.0536])
+VASES_VEC = np.array([-0.1362, -0.3803, -0.9923, -0.1798])
+PILLARS_VEC = np.array([0.0477, -0.4242, -1.1750, -0.3061])
+SEC_HAZARDS_VEC = np.array([0.2317, -0.4682, -1.3577, -0.4324])
+AGENT_VEC = np.array([0.4157, -0.5122, -1.5404, -0.5586])
+GOAL_VEC = np.array([0.5997, -0.5561, -1.7231, -0.6849])
+
 # Groups are a mujoco-specific mechanism for selecting which geom objects to "see"
 # We use these for raycasting lidar, where there are different lidar types.
 # These work by turning "on" the group to see and "off" all the other groups.
@@ -136,6 +144,7 @@ class Engine(gym.Env, gym.utils.EzPickle):
         'observe_qpos': False,  # Observe the qpos of the world
         'observe_qvel': False,  # Observe the qvel of the robot
         'observe_ctrl': False,  # Observe the previous action
+        'observe_robot_pos': False,  # Observe position of the robot
         'observe_freejoint': False,  # Observe base robot free joint
         'observe_com': False,  # Observe the center of mass of the robot
 
@@ -510,6 +519,8 @@ class Engine(gym.Env, gym.utils.EzPickle):
             obs_space_dict['qvel'] = gym.spaces.Box(-np.inf, np.inf, (self.robot.nv,), dtype=np.float32)
         if self.observe_ctrl:
             obs_space_dict['ctrl'] = gym.spaces.Box(-np.inf, np.inf, (self.robot.nu,), dtype=np.float32)
+        if self.observe_robot_pos:
+            obs_space_dict['robot_pos'] = gym.spaces.Box(-np.inf, np.inf, (3,), dtype=np.float32)
         if self.observe_vision:
             width, height = self.vision_size
             rows, cols = height, width
@@ -531,9 +542,8 @@ class Engine(gym.Env, gym.utils.EzPickle):
             if self.buttons_num > 0:
                 obs_space_dict['buttons_gt'] = gym.spaces.Box(-np.inf, np.inf, (self.buttons_num * 3,), dtype=np.float32)
         if self.observe_groundtruth_vectors:
-            num_objects = 6
             obs_space_dict['vision'] = gym.spaces.Box(-np.inf, np.inf, (2 + self.hazards_num + self.sec_hazards_num + self.vases_num +
-                                                                        self.pillars_num, num_objects + 3), dtype=np.float32)
+                                                                        self.pillars_num, HAZARDS_VEC.shape[0] + 2), dtype=np.float32)
 
         # Flatten it ourselves
         self.obs_space_dict = obs_space_dict
@@ -1185,6 +1195,8 @@ class Engine(gym.Env, gym.utils.EzPickle):
             obs['qvel'] = self.data.qvel.copy()
         if self.observe_ctrl:
             obs['ctrl'] = self.data.ctrl.copy()
+        if self.observe_robot_pos:
+            obs['robot_pos'] = self.robot_pos
         if self.observe_vision:
             obs['vision'] = self.obs_vision()
         if self.observe_groundtruth:
@@ -1210,35 +1222,27 @@ class Engine(gym.Env, gym.utils.EzPickle):
             num_objects = 6  # number of all constrainable objects
             obs['vision'] = []
 
-            robot_gt = np.zeros((1, num_objects))
-            robot_gt[:, 0] = 1.
-            robot_gt = np.concatenate([robot_gt, np.expand_dims(np.array(self.robot_pos), axis=0)], axis=-1)
+            robot_gt = np.concatenate([np.expand_dims(AGENT_VEC, axis=0), np.expand_dims(np.array(self.robot_pos)[:-1], axis=0)], axis=-1)
             obs['vision'].append(robot_gt)
 
-            goal_gt = np.zeros((1, num_objects))
-            goal_gt[:, 1] = 1.
-            goal_gt = np.concatenate([goal_gt, np.expand_dims(np.array(self.goal_pos), axis=0)], axis=-1)
+            goal_gt = np.concatenate([np.expand_dims(GOAL_VEC, axis=0), np.expand_dims(np.array(self.goal_pos)[:-1], axis=0)], axis=-1)
             obs['vision'].append(goal_gt)
 
             if self.hazards_num > 0:
-                hazards_gt = np.zeros((self.hazards_num, num_objects))
-                hazards_gt[:, 2] = 1.
-                hazards_gt = np.concatenate([hazards_gt, self.hazards_pos], axis=-1)
+                hazards_gt = np.repeat(np.expand_dims(HAZARDS_VEC, axis=0), self.hazards_num, axis=0)
+                hazards_gt = np.concatenate([hazards_gt, np.array(self.hazards_pos)[:, :-1]], axis=-1)
                 obs['vision'].append(hazards_gt)
             if self.sec_hazards_num > 0:
-                sec_hazards_gt = np.zeros((self.sec_hazards_num, num_objects))
-                sec_hazards_gt[:, 3] = 1.
-                sec_hazards_gt = np.concatenate([sec_hazards_gt, self.sec_hazards_pos], axis=1)
+                sec_hazards_gt = np.repeat(np.expand_dims(SEC_HAZARDS_VEC, axis=0), self.sec_hazards_num, axis=0)
+                sec_hazards_gt = np.concatenate([sec_hazards_gt, np.array(self.sec_hazards_pos)[:, :-1]], axis=1)
                 obs['vision'].append(sec_hazards_gt)
             if self.vases_num > 0:
-                vases_gt = np.zeros((self.vases_num, num_objects))
-                vases_gt[:, 4] = 1.
-                vases_gt = np.concatenate([vases_gt, self.vases_pos], axis=-1)
+                vases_gt = np.repeat(np.expand_dims(VASES_VEC, axis=0), self.vases_num, axis=0)
+                vases_gt = np.concatenate([vases_gt, np.array(self.vases_pos)[:, :-1]], axis=-1)
                 obs['vision'].append(vases_gt)
             if self.pillars_num > 0:
-                pillars_gt = np.zeros((self.pillars_num, num_objects))
-                pillars_gt[:, 5] = 1.
-                pillars_gt = np.concatenate([pillars_gt, self.pillars_pos], axis=-1)
+                pillars_gt = np.repeat(np.expand_dims(PILLARS_VEC, axis=0), self.pillars_num, axis=0)
+                pillars_gt = np.concatenate([pillars_gt, np.array(self.pillars_pos)[:, :-1]], axis=-1)
                 obs['vision'].append(pillars_gt)
 
             # shuffle object representations
