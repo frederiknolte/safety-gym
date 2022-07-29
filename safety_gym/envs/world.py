@@ -53,6 +53,7 @@ class World:
     DEFAULT = {
         'robot_base': 'xmls/car.xml',  # Which robot XML to use as the base
         'robot_xy': np.zeros(2),  # Robot XY location
+        'robot_rgba': [1., 0., 0., .1],
         'robot_rot': 0,  # Robot rotation about Z axis
 
         'floor_size': [3.5, 3.5, .1],  # Used for displaying the floor
@@ -114,6 +115,8 @@ class World:
         worldbody['body']['@pos'] = convert(np.r_[self.robot_xy, self.robot.z_height])
         worldbody['body']['@quat'] = convert(rot2quat(self.robot_rot))
 
+        self.xml['mujoco']['default']['geom']['@rgba'] = self.robot_rgba
+
         # We need this because xmltodict skips over single-item lists in the tree
         worldbody['body'] = [worldbody['body']]
         if 'geom' in worldbody:
@@ -141,9 +144,9 @@ class World:
                 <asset>
                     <texture type="skybox" builtin="gradient" rgb1="0.527 0.582 0.906" rgb2="0.1 0.1 0.35"
                         width="800" height="800" markrgb="1 1 1" mark="random" random="0.001"/>
-                    <texture name="texplane" builtin="checker" height="100" width="100"
-                        rgb1="0.7 0.7 0.7" rgb2="0.8 0.8 0.8" type="2d"/>
-                    <material name="MatPlane" reflectance="0.1" shininess="0.1" specular="0.1"
+                    <texture name="texplane" builtin="flat" height="100" width="100"
+                        rgb1="0.92 0.92 0.92" rgb2="0.8 0.8 0.8" type="2d"/>
+                    <material name="MatPlane" reflectance="0" shininess="0" specular="0"
                         texrepeat="10 10" texture="texplane"/>
                 </asset>
                 ''')
@@ -173,6 +176,7 @@ class World:
         cameras = xmltodict.parse('''<b>
             <camera name="fixednear" pos="0 -2 2" zaxis="0 -1 1"/>
             <camera name="fixedfar" pos="0 -5 5" zaxis="0 -1 1"/>
+            <camera name="topdown" pos="0 0 5.5" zaxis="0 0 1" fovy="45"/>
             </b>''')
         worldbody['camera'] = cameras['b']['camera']
 
@@ -228,9 +232,9 @@ class World:
                 '''.format(**{k: convert(v) for k, v in object.items()}))
             else:
                 body = xmltodict.parse('''
-                    <body name="{name}" pos="{pos}" quat="{quat}">
+                    <body name="{name}" pos="{pos}" quat="{quat}"> 
                         <freejoint name="{name}"/>
-                        <geom name="{name}" type="{type}" size="{size}" density="{density}"
+                        <geom name="{name}" type="{type}" size="{size}" mass="0.12" friction="1. 0.005 0.0001"
                             rgba="{rgba}" group="{group}"/>
                     </body>
                 '''.format(**{k: convert(v) for k, v in object.items()}))
