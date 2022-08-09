@@ -32,7 +32,7 @@ def get_action(env, magnitude=60.):
 # Create environment
 vision_env_base.register('', {'camera_name': 'topdown',
                               # 'robot_locations': [[1., 0.02]],
-                              'vision_size': (128, 128),
+                              'vision_size': (64, 64),
                               'balls_num': 1,
                               # 'balls_locations': [[0., 0.]]
                               })

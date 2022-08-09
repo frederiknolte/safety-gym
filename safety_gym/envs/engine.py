@@ -20,7 +20,7 @@ import sys
 # This also affects the vision observation, so if training from pixels.
 COLOR_agent = [[1., 0., 0., 1.], [0., 1., 0., 1.], [0., 0., 1., 1.]]
 COLOR_ball = [[1., 0., 0., 1.], [0., 1., 0., 1.], [0., 0., 1., 1.]]  # np.array([0, 1, 1, 1])
-COLOR_WALL = np.array([.5, .5, .5, 1])
+COLOR_WALL = np.array([.92, .92, .92, 0])
 
 # Groups are a mujoco-specific mechanism for selecting which geom objects to "see"
 # We use these for raycasting lidar, where there are different lidar types.
