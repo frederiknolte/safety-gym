@@ -4,6 +4,7 @@ import gym
 import gym.spaces
 import numpy as np
 from itertools import product
+from copy import deepcopy
 from PIL import Image
 from copy import deepcopy
 from collections import OrderedDict
@@ -18,9 +19,10 @@ import sys
 # Distinct colors for different types of objects.
 # For now this is mostly used for visualization.
 # This also affects the vision observation, so if training from pixels.
-COLOR_agent = [[1., 0., 0., 1.], [0., 1., 0., 1.], [0., 0., 1., 1.]]
-COLOR_ball = [[1., 0., 0., 1.], [0., 1., 0., 1.], [0., 0., 1., 1.]]  # np.array([0, 1, 1, 1])
+# COLOR_agent = [[1., 0., 0., 1.], [0., 1., 0., 1.], [0., 0., 1., 1.]]
+COLOR_ball = [[1., 0.05, 0.05, 1.], [0.05, 1., 0.05, 1.], [0.05, 0.05, 1., 1.], [0.156, 0.768, 0.56, 1.], [0.6, 0.8, 0.045, 1.]]  # np.array([0, 1, 1, 1])
 COLOR_WALL = np.array([.92, .92, .92, 0])
+COLOR_plane = [[0.8, 0.8, 0.8], [0.77, 0.56, 0.47], [0.22, 0.27, 0.47]]
 
 # Groups are a mujoco-specific mechanism for selecting which geom objects to "see"
 # We use these for raycasting lidar, where there are different lidar types.
@@ -95,7 +97,7 @@ class Engine(gym.Env, gym.utils.EzPickle):
         # Robot
         'robot_placements': None,  # Robot placements list (defaults to full extents)
         'robot_locations': [],  # Explicitly place robot XY coordinate
-        'robot_keepout': 0.,  # Needs to be set to match the robot XML used
+        'robot_keepout': 0.4,  # Needs to be set to match the robot XML used
         'robot_base': 'xmls/ball.xml',  # Which robot XML to use as the base
         'robot_rot': None,  # Override robot starting angle
 
@@ -142,8 +144,8 @@ class Engine(gym.Env, gym.utils.EzPickle):
         'balls_num': 0,  # Number of balls in the world
         'balls_placements': None,  # balls placements list (defaults to full extents)
         'balls_locations': [],  # Fixed locations to override placements
-        'balls_keepout': 0.,  # Radius of balls keepout for placement
-        'balls_size': 0.3,  # Half-size (radius) of ball object
+        'balls_keepout': 0.4,  # Radius of balls keepout for placement
+        'balls_size': 0.4,  # Half-size (radius) of ball object
         'balls_density': 1000.,  # Density of balls
         'balls_sink': 0.,  # Experimentally measured, based on size and density,
                              # how far balls "sink" into the floor.
@@ -427,7 +429,11 @@ class Engine(gym.Env, gym.utils.EzPickle):
 
         world_config['robot_base'] = self.robot_base
         world_config['robot_xy'] = self.layout['robot']
-        world_config['robot_rgba'] = COLOR_agent[self.rs.randint(low=0, high=len(COLOR_ball))]
+
+        ball_colors_tmp = deepcopy(COLOR_ball)
+        color_id = self.rs.randint(low=0, high=len(ball_colors_tmp))
+        world_config['robot_rgba'] = ball_colors_tmp[color_id]
+        del ball_colors_tmp[color_id]
 
         if self.robot_rot is None:
             world_config['robot_rot'] = self.random_rot()
@@ -446,6 +452,7 @@ class Engine(gym.Env, gym.utils.EzPickle):
         world_config['objects'] = {}
         if self.balls_num:
             for i in range(self.balls_num):
+                color_id = self.rs.randint(low=0, high=len(ball_colors_tmp))
                 name = f'ball{i}'
                 object = {'name': name,
                           'size': np.ones(3) * self.balls_size,
@@ -455,8 +462,9 @@ class Engine(gym.Env, gym.utils.EzPickle):
                           'pos': np.r_[self.layout[name], self.balls_size - self.balls_sink],
                           'rot': self.random_rot(),
                           'group': GROUP_ball,
-                          'rgba': COLOR_ball[self.rs.randint(low=0, high=len(COLOR_ball))]}
+                          'rgba': ball_colors_tmp[color_id]}
                 world_config['objects'][name] = object
+                del ball_colors_tmp[color_id]
 
         # Extra geoms (immovable objects) to add to the scene
         world_config['geoms'] = {}
@@ -474,6 +482,9 @@ class Engine(gym.Env, gym.utils.EzPickle):
 
         # Extra mocap bodies used for control (equality to object of same name)
         world_config['mocaps'] = {}
+
+        world_config['texplane'] = {'rgb_1': COLOR_plane[self.rs.randint(low=0, high=len(COLOR_plane))],
+                                    'rgb_2': COLOR_plane[self.rs.randint(low=0, high=len(COLOR_plane))]}
 
         return world_config
 

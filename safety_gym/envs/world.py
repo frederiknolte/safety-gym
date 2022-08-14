@@ -65,6 +65,8 @@ class World:
         # Mocaps -- mocap objects which are used to control other objects
         'mocaps': {},
 
+        'texplane': {},
+
         # Determine whether we create render contexts
         'observe_vision': False,
     }
@@ -108,14 +110,14 @@ class World:
             self.robot_base_xml = f.read()
         self.xml = xmltodict.parse(self.robot_base_xml)  # Nested OrderedDict objects
 
+        self.xml['mujoco']['default']['geom']['@rgba'] = convert(self.robot_rgba)
+
         # Convenience accessor for xml dictionary
         worldbody = self.xml['mujoco']['worldbody']
 
         # Move robot position to starting position
         worldbody['body']['@pos'] = convert(np.r_[self.robot_xy, self.robot.z_height])
         worldbody['body']['@quat'] = convert(rot2quat(self.robot_rot))
-
-        self.xml['mujoco']['default']['geom']['@rgba'] = self.robot_rgba
 
         # We need this because xmltodict skips over single-item lists in the tree
         worldbody['body'] = [worldbody['body']]
@@ -144,12 +146,12 @@ class World:
                 <asset>
                     <texture type="skybox" builtin="gradient" rgb1="0.527 0.582 0.906" rgb2="0.1 0.1 0.35"
                         width="800" height="800" markrgb="1 1 1" mark="random" random="0.001"/>
-                    <texture name="texplane" builtin="flat" height="100" width="100"
-                        rgb1="0.92 0.92 0.92" rgb2="0.8 0.8 0.8" type="2d"/>
+                    <texture name="texplane" builtin="checker" height="100" width="100" 
+                        rgb1="{rgb_1}" rgb2="{rgb_2}" type="2d"/>
                     <material name="MatPlane" reflectance="0" shininess="0" specular="0"
-                        texrepeat="10 10" texture="texplane"/>
+                        texrepeat="30 30" texture="texplane"/>
                 </asset>
-                ''')
+                '''.format(**{k: convert(v) for k, v in self.texplane.items()}))
             self.xml['mujoco']['asset'] = asset['asset']
 
 

@@ -9,11 +9,11 @@
     </default>
     <worldbody>
         <geom name="floor" size="5 5 0.1" type="plane" condim="6"/>
-        <body name="robot" pos="0 0 .3">
+        <body name="robot" pos="0 0 .4">
             <camera name="vision" pos="0 0 .15" xyaxes="0 -1 0 .4 0 1" fovy="90"/>
             <joint type="slide" axis="1 0 0" name="x" damping="0.01"/>
             <joint type="slide" axis="0 1 0" name="y" damping="0.01"/>
-            <geom name="robot" type="sphere" size=".3" mass="0.12" friction="1. 0.005 0.0001"/>
+            <geom name="robot" type="sphere" size=".4" mass="0.12" friction="1. 0.005 0.0001"/>
             <!-- <geom name="pointarrow" pos="0.1 0 0" size="0.05 0.05 0.05" type="box"/> -->
             <site name="robot" rgba="1 0 0 .1"/>
         </body>

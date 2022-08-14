@@ -44,11 +44,12 @@ np.random.seed(42)
 env.seed(42)
 
 # Settings for Dataset
+start_index = 0
 num_samples = 1000
 path = './data/train'
 os.makedirs(path, exist_ok=True)
 
-for s in tqdm(range(num_samples)):
+for s in tqdm(range(start_index, start_index+num_samples)):
     frames = []
     obs = env.reset()
     action = get_action(env)
