@@ -21,12 +21,12 @@ COLOR_CIRCLE = np.array([0, 1, 0, 1])
 COLOR_RED = np.array([1, 0, 0, 1])
 
 # Vector representations when ground truth vector representations should be returned
-HAZARDS_VEC = np.array([-0.3202, -0.3363, -0.8096, -0.0536])
-VASES_VEC = np.array([-0.1362, -0.3803, -0.9923, -0.1798])
-PILLARS_VEC = np.array([0.0477, -0.4242, -1.1750, -0.3061])
-SEC_HAZARDS_VEC = np.array([0.2317, -0.4682, -1.3577, -0.4324])
-AGENT_VEC = np.array([0.4157, -0.5122, -1.5404, -0.5586])
-GOAL_VEC = np.array([0.5997, -0.5561, -1.7231, -0.6849])
+HAZARDS_VEC = np.array([1., 0., 0., 0., 0., 0.])  # np.array([-0.3202, -0.3363, -0.8096, -0.0536])
+VASES_VEC = np.array([0., 1., 0., 0., 0., 0.])  # np.array([-0.1362, -0.3803, -0.9923, -0.1798])
+PILLARS_VEC = np.array([0., 0., 1., 0., 0., 0.])  # np.array([0.0477, -0.4242, -1.1750, -0.3061])
+SEC_HAZARDS_VEC = np.array([0., 0., 0., 1., 0., 0.])  # np.array([0.2317, -0.4682, -1.3577, -0.4324])
+AGENT_VEC = np.array([0., 0., 0., 0., 1., 0.])  # np.array([0.4157, -0.5122, -1.5404, -0.5586])
+GOAL_VEC = np.array([0., 0., 0., 0., 0., 1.])  # np.array([0.5997, -0.5561, -1.7231, -0.6849])
 
 # Groups are a mujoco-specific mechanism for selecting which geom objects to "see"
 # We use these for raycasting lidar, where there are different lidar types.
