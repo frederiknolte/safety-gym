@@ -55,6 +55,7 @@ class World:
         'robot_xy': np.zeros(2),  # Robot XY location
         'robot_rgba': [1., 0., 0., .1],
         'robot_rot': 0,  # Robot rotation about Z axis
+        'robot_size': 0.4,  # Size of the robot point mass
 
         'floor_size': [3.5, 3.5, .1],  # Used for displaying the floor
 
@@ -111,6 +112,7 @@ class World:
         self.xml = xmltodict.parse(self.robot_base_xml)  # Nested OrderedDict objects
 
         self.xml['mujoco']['default']['geom']['@rgba'] = convert(self.robot_rgba)
+        self.xml['mujoco']['worldbody']['body']['geom']['@size'] = convert(self.robot_size)
 
         # Convenience accessor for xml dictionary
         worldbody = self.xml['mujoco']['worldbody']

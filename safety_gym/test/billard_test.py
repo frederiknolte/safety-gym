@@ -31,10 +31,12 @@ def get_action(env, magnitude=60.):
 
 # Create environment
 vision_env_base.register('', {'camera_name': 'topdown',
-                              # 'robot_locations': [[1., 0.02]],
                               'vision_size': (64, 64),
                               'balls_num': 1,
-                              # 'balls_locations': [[0., 0.]]
+                              'observe_vision': False,
+                              'observe_pos': True,
+                              'observe_size': True,
+                              'observe_color': True,
                               })
 
 env = gym.make('Safexp-Ball-v0')
@@ -46,25 +48,42 @@ env.seed(42)
 # Settings for Dataset
 start_index = 0
 num_samples = 1000
-path = './data/train'
+path = './data/bla'
 os.makedirs(path, exist_ok=True)
 
 for s in tqdm(range(start_index, start_index+num_samples)):
     frames = []
+    states = []
     obs = env.reset()
     action = get_action(env)
 
     for i in range(100):
         if i % 2 == 0:
-            frames.append((np.transpose(obs['vision'], (1, 2, 0)) * 255).astype('uint8'))
+            state_i = np.empty((env.balls_num + 1, 0))
+
+            if env.observe_vision:
+                frames.append((np.transpose(obs['vision'], (1, 2, 0)) * 255).astype('uint8'))
+            if env.observe_pos:
+                positions = np.concatenate([obs['robot_pos'][:, :-1], obs['balls_pos'][:, :-1]], axis=0)
+                state_i = np.concatenate([state_i, positions], axis=-1)
+            if env.observe_size:
+                sizes = np.concatenate([obs['robot_size'], obs['balls_size']], axis=0)[:, None]
+                state_i = np.concatenate([state_i, sizes], axis=-1)
+            if env.observe_color:
+                colors = np.concatenate([obs['robot_color'][:, :-1], obs['balls_color'][:, :-1]], axis=0)
+                state_i = np.concatenate([state_i, colors], axis=-1)
+
+            states.append(state_i)
+
         action = np.array([0., 0.]) if i > 0 else action
         obs, reward, done, info = env.step(action)
 
     # Save frames
-    frames = np.stack(frames)
-    np.save(os.path.join(path, str(s)), frames)
-
-    # Make video
-    make_movie(frames, path, str(s), fps=5)
-
-pass
+    if env.observe_vision:
+        frames = np.stack(frames)
+        np.save(os.path.join(path, str(s)), frames)
+        # Make video
+        make_movie(frames, path, str(s), fps=5)
+    if env.observe_pos or env.observe_size or env.observe_color:
+        states = np.stack(states)
+        np.save(os.path.join(path, str(s)), states)

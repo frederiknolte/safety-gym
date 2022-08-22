@@ -100,6 +100,7 @@ class Engine(gym.Env, gym.utils.EzPickle):
         'robot_keepout': 0.4,  # Needs to be set to match the robot XML used
         'robot_base': 'xmls/ball.xml',  # Which robot XML to use as the base
         'robot_rot': None,  # Override robot starting angle
+        'robot_size': 0.4,
 
         # Starting position distribution
         'randomize_layout': True,  # If false, set the random seed before layout to constant
@@ -113,6 +114,9 @@ class Engine(gym.Env, gym.utils.EzPickle):
         'observation_flatten': False,  # Flatten observation into a vector
         'observe_sensors': True,  # Observe all sensor data from simulator
         'observe_vision': False,  # Observe vision from the robot
+        'observe_pos': False,  # Observe positions of robot and balls
+        'observe_size': False,  # Observe sizes of robot and balls
+        'observe_color': False,  # Observe colors of robot and balls
         # These next observations are unnormalized, and are only for debugging
 
         # Render options
@@ -216,7 +220,7 @@ class Engine(gym.Env, gym.utils.EzPickle):
     @property
     def robot_pos(self):
         ''' Helper to get current robot position '''
-        return self.data.get_body_xpos('robot').copy()
+        return [self.data.get_body_xpos('robot').copy()]
 
     @property
     def balls_pos(self):
@@ -227,6 +231,11 @@ class Engine(gym.Env, gym.utils.EzPickle):
     def walls_pos(self):
         ''' Helper to get the hazards positions from layout '''
         return [self.data.get_body_xpos(f'wall{i}').copy() for i in range(self.walls_num)]
+
+    @property
+    def balls_color(self):
+        ''' Helper to get the hazards positions from layout '''
+        return [self.color_balls[f'ball{i}'].copy() for i in range(self.balls_num)]
 
     def build_observation_space(self):
         ''' Construct observtion space.  Happens only once at during __init__ '''
@@ -277,6 +286,15 @@ class Engine(gym.Env, gym.utils.EzPickle):
             self.vision_size = (rows, cols)
             obs_space_dict['vision'] = gym.spaces.Box(0, 1.0, (3,) + self.vision_size, dtype=np.float32)
         # Flatten it ourselves
+        if self.observe_pos:
+            obs_space_dict['robot_pos'] = gym.spaces.Box(-np.inf, np.inf, (1, 3,), dtype=np.float32)
+            obs_space_dict['balls_pos'] = gym.spaces.Box(-np.inf, np.inf, (self.balls_num, 3,), dtype=np.float32)
+        if self.observe_size:
+            obs_space_dict['robot_size'] = gym.spaces.Box(-np.inf, np.inf, (1,), dtype=np.float32)
+            obs_space_dict['balls_size'] = gym.spaces.Box(-np.inf, np.inf, (1,), dtype=np.float32)
+        if self.observe_color:
+            obs_space_dict['robot_color'] = gym.spaces.Box(-np.inf, np.inf, (1, 4,), dtype=np.float32)
+            obs_space_dict['balls_color'] = gym.spaces.Box(-np.inf, np.inf, (self.balls_num, 4,), dtype=np.float32)
         self.obs_space_dict = obs_space_dict
         if self.observation_flatten:
             self.obs_flat_size = sum([np.prod(i.shape) for i in self.obs_space_dict.values()])
@@ -433,7 +451,10 @@ class Engine(gym.Env, gym.utils.EzPickle):
         ball_colors_tmp = deepcopy(COLOR_ball)
         color_id = self.rs.randint(low=0, high=len(ball_colors_tmp))
         world_config['robot_rgba'] = ball_colors_tmp[color_id]
+        self.robot_color = [ball_colors_tmp[color_id]]
         del ball_colors_tmp[color_id]
+
+        world_config['robot_size'] = self.robot_size
 
         if self.robot_rot is None:
             world_config['robot_rot'] = self.random_rot()
@@ -450,6 +471,7 @@ class Engine(gym.Env, gym.utils.EzPickle):
 
         # Extra objects to add to the scene
         world_config['objects'] = {}
+        self.color_balls = {}
         if self.balls_num:
             for i in range(self.balls_num):
                 color_id = self.rs.randint(low=0, high=len(ball_colors_tmp))
@@ -464,6 +486,7 @@ class Engine(gym.Env, gym.utils.EzPickle):
                           'group': GROUP_ball,
                           'rgba': ball_colors_tmp[color_id]}
                 world_config['objects'][name] = object
+                self.color_balls[name] = ball_colors_tmp[color_id]
                 del ball_colors_tmp[color_id]
 
         # Extra geoms (immovable objects) to add to the scene
@@ -594,6 +617,15 @@ class Engine(gym.Env, gym.utils.EzPickle):
                     obs[sensor] = self.world.get_sensor(sensor)
         if self.observe_vision:
             obs['vision'] = self.obs_vision()
+        if self.observe_pos:
+            obs['robot_pos'] = np.array(self.robot_pos)
+            obs['balls_pos'] = np.array(self.balls_pos)
+        if self.observe_size:
+            obs['robot_size'] = np.array([self.robot_size,])
+            obs['balls_size'] = np.array([self.balls_size,] * self.balls_num)
+        if self.observe_color:
+            obs['robot_color'] = np.array(self.robot_color)
+            obs['balls_color'] = np.array(self.balls_color)
         if self.observation_flatten:
             flat_obs = np.zeros(self.obs_flat_size)
             offset = 0
