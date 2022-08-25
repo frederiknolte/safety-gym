@@ -30,13 +30,16 @@ def get_action(env, magnitude=60.):
 
 
 # Create environment
+balls_num = 1
 vision_env_base.register('', {'camera_name': 'topdown',
                               'vision_size': (64, 64),
-                              'balls_num': 1,
-                              'observe_vision': False,
+                              'balls_num': balls_num,
+                              'observe_vision': True,
                               'observe_pos': True,
                               'observe_size': True,
                               'observe_color': True,
+                              'sensors_obs': ['accelerometer', 'velocimeter'] + [f'accelerometer_ball{i}' for i in range(balls_num)] +
+                                                [f'velocimeter_ball{i}' for i in range(balls_num)],
                               })
 
 env = gym.make('Safexp-Ball-v0')
@@ -48,7 +51,7 @@ env.seed(42)
 # Settings for Dataset
 start_index = 0
 num_samples = 1000
-path = './data/bla'
+path = './data/train'
 os.makedirs(path, exist_ok=True)
 
 for s in tqdm(range(start_index, start_index+num_samples)):
@@ -72,6 +75,12 @@ for s in tqdm(range(start_index, start_index+num_samples)):
             if env.observe_color:
                 colors = np.concatenate([obs['robot_color'][:, :-1], obs['balls_color'][:, :-1]], axis=0)
                 state_i = np.concatenate([state_i, colors], axis=-1)
+            if 'accelerometer' in env.sensors_obs:
+                accelerometer = np.concatenate([obs[accelerometer_name][None, :-1] for accelerometer_name in ['accelerometer'] + [f'accelerometer_ball{i}' for i in range(balls_num)]], axis=0)
+                state_i = np.concatenate([state_i, accelerometer], axis=-1)
+            if 'velocimeter' in env.sensors_obs:
+                velocimeter = np.concatenate([obs[velocimeter_name][None, :-1] for velocimeter_name in ['velocimeter'] + [f'velocimeter_ball{i}' for i in range(balls_num)]], axis=0)
+                state_i = np.concatenate([state_i, velocimeter], axis=-1)
 
             states.append(state_i)
 
@@ -81,9 +90,9 @@ for s in tqdm(range(start_index, start_index+num_samples)):
     # Save frames
     if env.observe_vision:
         frames = np.stack(frames)
-        np.save(os.path.join(path, str(s)), frames)
+        np.save(os.path.join(path, 'vision_' + str(s)), frames)
         # Make video
         make_movie(frames, path, str(s), fps=5)
     if env.observe_pos or env.observe_size or env.observe_color:
         states = np.stack(states)
-        np.save(os.path.join(path, str(s)), states)
+        np.save(os.path.join(path, 'state_' + str(s)), states)

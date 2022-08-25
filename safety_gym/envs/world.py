@@ -116,6 +116,7 @@ class World:
 
         # Convenience accessor for xml dictionary
         worldbody = self.xml['mujoco']['worldbody']
+        sensor = self.xml['mujoco']['sensor']
 
         # Move robot position to starting position
         worldbody['body']['@pos'] = convert(np.r_[self.robot_xy, self.robot.z_height])
@@ -127,6 +128,16 @@ class World:
             worldbody['geom'] = [worldbody['geom']]
         else:
             worldbody['geom'] = []
+
+        if 'accelerometer' in sensor:
+            sensor['accelerometer'] = [sensor['accelerometer']]
+        else:
+            sensor['accelerometer'] = []
+
+        if 'velocimeter' in sensor:
+            sensor['velocimeter'] = [sensor['velocimeter']]
+        else:
+            sensor['velocimeter'] = []
 
         # Add equality section if missing
         if 'equality' not in self.xml['mujoco']:
@@ -240,8 +251,18 @@ class World:
                         <freejoint name="{name}"/>
                         <geom name="{name}" type="{type}" size="{size}" mass="0.12" friction="1. 0.005 0.0001"
                             rgba="{rgba}" group="{group}"/>
+                    <site name="{name}" rgba="{rgba}"></site>
                     </body>
                 '''.format(**{k: convert(v) for k, v in object.items()}))
+
+            if 'ball' in name:
+                accelerometer = xmltodict.parse('''
+                                    <accelerometer site="{name}" name="accelerometer_{name}"/> 
+                                '''.format(**{k: convert(v) for k, v in object.items()}))
+                velocimeter = xmltodict.parse('''<velocimeter site="{name}" name="velocimeter_{name}"/> 
+                                                '''.format(**{k: convert(v) for k, v in object.items()}))
+                sensor['accelerometer'].append(accelerometer['accelerometer'])
+                sensor['velocimeter'].append(velocimeter['velocimeter'])
             # Append new body to world, making it a list optionally
             # Add the object to the world
             worldbody['body'].append(body['body'])

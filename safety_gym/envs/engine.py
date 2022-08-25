@@ -243,7 +243,10 @@ class Engine(gym.Env, gym.utils.EzPickle):
 
         if self.observe_sensors:
             for sensor in self.sensors_obs:  # Explicitly listed sensors
-                dim = self.robot.sensor_dim[sensor]
+                if sensor in self.robot.sensor_dim:
+                    dim = self.robot.sensor_dim[sensor]
+                else:
+                    dim = self.robot.sensor_dim[sensor.split('_')[0]]
                 obs_space_dict[sensor] = gym.spaces.Box(-np.inf, np.inf, (dim,), dtype=np.float32)
             # Velocities don't have wraparound effects that rotational positions do
             # Wraparounds are not kind to neural networks
