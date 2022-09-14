@@ -1288,6 +1288,8 @@ class Engine(gym.Env, gym.utils.EzPickle):
             cost['cost_buttons'] = 0
         if self.constrain_gremlins:
             cost['cost_gremlins'] = 0
+        if self.constrain_hazards:
+            cost['cost_hazards'] = 0
         buttons_constraints_active = self.constrain_buttons and (self.buttons_timer == 0)
         for contact in self.data.contact[:self.data.ncon]:
             geom_ids = [contact.geom1, contact.geom2]
@@ -1305,6 +1307,9 @@ class Engine(gym.Env, gym.utils.EzPickle):
             if self.constrain_gremlins and any(n.startswith('gremlin') for n in geom_names):
                 if any(n in self.robot.geom_names for n in geom_names):
                     cost['cost_gremlins'] += self.gremlins_contact_cost
+            if self.constrain_hazards and any(n.startswith('hazard_transparent') for n in geom_names):
+                if any(n in self.robot.geom_names for n in geom_names):
+                    cost['cost_hazards'] += self.hazards_cost
 
         # Displacement processing
         if self.constrain_vases and self.vases_displace_cost:
@@ -1327,7 +1332,6 @@ class Engine(gym.Env, gym.utils.EzPickle):
 
         # Calculate constraint violations
         if self.constrain_hazards:
-            cost['cost_hazards'] = 0
             for h_pos in self.hazards_pos:
                 h_dist = self.dist_xy(h_pos)
                 if h_dist <= self.hazards_size:
