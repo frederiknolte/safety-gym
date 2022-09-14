@@ -259,6 +259,7 @@ class Engine(gym.Env, gym.utils.EzPickle):
         'hazards_locations': [],  # Fixed locations to override placements
         'hazards_keepout': 0.2,  # Radius of hazard keepout for placement
         'hazards_size': 0.3,  # Radius of hazards
+        'hazards_transparent_size': None,  # If not None, scalar indicates size of transparent sphere around hazard
         'hazards_cost': 1.0,  # Cost (per step) for violating the constraint
         'hazards_color': np.array([0, 0, 1, 1]),  # Object color
 
@@ -791,6 +792,19 @@ class Engine(gym.Env, gym.utils.EzPickle):
                         'group': GROUP_HAZARD,
                         'rgba': self.hazards_color}
                 world_config['geoms'][name] = geom
+
+                if self.hazards_transparent_size is not None:
+                    name_ = f'hazard_transparent{i}'
+                    geom = {'name': name_,
+                            'size': [self.hazards_transparent_size, 1e-2],  # self.hazards_size / 2],
+                            'pos': np.r_[self.layout[name], 2e-2],  # self.hazards_size / 2 + 1e-2],
+                            'rot': self.random_rot(),
+                            'type': 'cylinder',
+                            'contype': 1,
+                            'conaffinity': 1,
+                            'group': GROUP_HAZARD,
+                            'rgba': [0., 0., 0., 0.]}
+                    world_config['geoms'][name_] = geom
         if self.sec_hazards_num:
             for i in range(self.sec_hazards_num):
                 name = f'sec_hazard{i}'
