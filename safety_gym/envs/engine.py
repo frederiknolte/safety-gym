@@ -167,6 +167,7 @@ class Engine(gym.Env, gym.utils.EzPickle):
         # For deterministic steps, set frameskip_binom_p = 1.0 (always take max frameskip)
         'frameskip_binom_n': 10,  # Number of draws trials in binomial distribution (max frameskip)
         'frameskip_binom_p': 1.0,  # Probability of trial return (controls distribution)
+        'contacts': [],
 
         '_seed': None,  # Random state seed (avoid name conflict with self.seed)
     }
@@ -669,9 +670,20 @@ class Engine(gym.Env, gym.utils.EzPickle):
 
         # Simulate physics forward
         exception = False
+        self.contacts = []
         for _ in range(self.rs.binomial(self.frameskip_binom_n, self.frameskip_binom_p)):
             try:
                 self.sim.step()  # Physics simulation step
+
+                contacts = []
+                for contact in self.data.contact[:self.data.ncon]:
+                    geom_ids = [contact.geom1, contact.geom2]
+                    geom_names = sorted([self.model.geom_id2name(g) for g in geom_ids])
+
+                    if 'floor' not in geom_names:
+                        contacts.append(geom_names)
+                self.contacts += contacts
+
             except MujocoException as me:
                 print('MujocoException', me)
                 exception = True

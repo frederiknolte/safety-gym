@@ -1,6 +1,7 @@
 import os
 import numpy as np
 from tqdm import tqdm
+import torch
 from matplotlib import pyplot as plt
 import imageio
 import gym
@@ -27,6 +28,14 @@ def get_action(env, magnitude=60.):
     action = action_vector * magnitude * np.array([-1., 1.])
     action = np.flip(action)
     return action
+
+
+def get_contacts(env):
+    return env.contacts
+
+
+def remove_duplicates(contacts):
+    return [list(set(tuple(sorted(contact)) for contact in time_step)) for time_step in contacts]
 
 
 # Create environment
@@ -57,10 +66,13 @@ os.makedirs(path, exist_ok=True)
 for s in tqdm(range(start_index, start_index+num_samples)):
     frames = []
     states = []
+    contacts = [[]]
     obs = env.reset()
     action = get_action(env)
 
-    for i in range(100):
+    for i in range(500):
+        contacts[-1] += get_contacts(env)
+
         if i % 2 == 0:
             state_i = np.empty((env.balls_num + 1, 0))
 
@@ -83,9 +95,12 @@ for s in tqdm(range(start_index, start_index+num_samples)):
                 state_i = np.concatenate([state_i, velocimeter], axis=-1)
 
             states.append(state_i)
+            contacts.append([])
 
         action = np.array([0., 0.]) if i > 0 else action
         obs, reward, done, info = env.step(action)
+
+    contacts = remove_duplicates(contacts)
 
     # Save frames
     if env.observe_vision:
@@ -96,3 +111,5 @@ for s in tqdm(range(start_index, start_index+num_samples)):
     if env.observe_pos or env.observe_size or env.observe_color:
         states = np.stack(states)
         np.save(os.path.join(path, 'state_' + str(s)), states)
+
+    torch.save(contacts, os.path.join(path, 'contacts_' + str(s) + '.pt'))
