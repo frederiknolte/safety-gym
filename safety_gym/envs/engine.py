@@ -295,7 +295,7 @@ class Engine(gym.Env, gym.utils.EzPickle):
             obs_space_dict['balls_pos'] = gym.spaces.Box(-np.inf, np.inf, (self.balls_num, 3,), dtype=np.float32)
         if self.observe_size:
             obs_space_dict['robot_size'] = gym.spaces.Box(-np.inf, np.inf, (1,), dtype=np.float32)
-            obs_space_dict['balls_size'] = gym.spaces.Box(-np.inf, np.inf, (1,), dtype=np.float32)
+            obs_space_dict['balls_size'] = gym.spaces.Box(-np.inf, np.inf, (self.balls_num,), dtype=np.float32)
         if self.observe_color:
             obs_space_dict['robot_color'] = gym.spaces.Box(-np.inf, np.inf, (1, 4,), dtype=np.float32)
             obs_space_dict['balls_color'] = gym.spaces.Box(-np.inf, np.inf, (self.balls_num, 4,), dtype=np.float32)
