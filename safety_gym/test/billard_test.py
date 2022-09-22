@@ -39,8 +39,9 @@ def remove_duplicates(contacts):
 
 
 # Create environment
-balls_num = 1
-vision_env_base.register('', {'camera_name': 'topdown',
+balls_num = 3
+vision_env_base.register('', {'num_steps': 10000,
+                              'camera_name': 'topdown',
                               'vision_size': (64, 64),
                               'balls_num': balls_num,
                               'observe_vision': True,
@@ -78,6 +79,8 @@ for s in tqdm(range(start_index, start_index+num_samples)):
 
             if env.observe_vision:
                 frames.append((np.transpose(obs['vision'], (1, 2, 0)) * 255).astype('uint8'))
+                # plt.imshow(frames[-1])
+                # plt.show()
             if env.observe_pos:
                 positions = np.concatenate([obs['robot_pos'][:, :-1], obs['balls_pos'][:, :-1]], axis=0)
                 state_i = np.concatenate([state_i, positions], axis=-1)
