@@ -20,14 +20,6 @@ import sys
 COLOR_CIRCLE = np.array([0, 1, 0, 1])
 COLOR_RED = np.array([1, 0, 0, 1])
 
-# Vector representations when ground truth vector representations should be returned
-HAZARDS_VEC = np.array([1., 0., 0., 0., 0., 0.])  # np.array([-0.3202, -0.3363, -0.8096, -0.0536])
-VASES_VEC = np.array([0., 1., 0., 0., 0., 0.])  # np.array([-0.1362, -0.3803, -0.9923, -0.1798])
-PILLARS_VEC = np.array([0., 0., 1., 0., 0., 0.])  # np.array([0.0477, -0.4242, -1.1750, -0.3061])
-SEC_HAZARDS_VEC = np.array([0., 0., 0., 1., 0., 0.])  # np.array([0.2317, -0.4682, -1.3577, -0.4324])
-AGENT_VEC = np.array([0., 0., 0., 0., 1., 0.])  # np.array([0.4157, -0.5122, -1.5404, -0.5586])
-GOAL_VEC = np.array([0., 0., 0., 0., 0., 1.])  # np.array([0.5997, -0.5561, -1.7231, -0.6849])
-
 # Groups are a mujoco-specific mechanism for selecting which geom objects to "see"
 # We use these for raycasting lidar, where there are different lidar types.
 # These work by turning "on" the group to see and "off" all the other groups.
@@ -112,6 +104,7 @@ class Engine(gym.Env, gym.utils.EzPickle):
         'robot_keepout': 0.4,  # Needs to be set to match the robot XML used
         'robot_base': 'xmls/car.xml',  # Which robot XML to use as the base
         'robot_rot': None,  # Override robot starting angle
+        'robot_vec': np.array([0., 0., 0., 0., 1., 0.]),  # Vector representations when ground truth vector representations should be returned
 
         # Starting position distribution
         'randomize_layout': True,  # If false, set the random seed before layout to constant
@@ -184,6 +177,7 @@ class Engine(gym.Env, gym.utils.EzPickle):
         'goal_keepout': 0.4,  # Keepout radius when placing goals
         'goal_size': 0.3,  # Radius of the goal area (if using task 'goal')
         'goal_color': np.array([0, 1, 0, 1]),  # Object color
+        'goal_vec': np.array([0., 0., 0., 0., 0., 1.]),  # Vector representations when ground truth vector representations should be returned
 
         # Box parameters (only used if task == 'push')
         'box_placements': None,  # Box placements list (defaults to full extents)
@@ -262,6 +256,7 @@ class Engine(gym.Env, gym.utils.EzPickle):
         'hazards_transparent_size': None,  # If not None, scalar indicates size of transparent sphere around hazard
         'hazards_cost': 1.0,  # Cost (per step) for violating the constraint
         'hazards_color': np.array([0, 0, 1, 1]),  # Object color
+        'hazards_vec': np.array([1., 0., 0., 0., 0., 0.]),  # Vector representations when ground truth vector representations should be returned
 
         # Secondary Hazardous areas
         'sec_hazards_num': 0,  # Number of hazards in an environment
@@ -271,6 +266,7 @@ class Engine(gym.Env, gym.utils.EzPickle):
         'sec_hazards_size': 0.3,  # Radius of hazards
         'sec_hazards_cost': 1.0,  # Cost (per step) for violating the constraint
         'sec_hazards_color': np.array([0, 0, 1, 1]),  # Object color
+        'sec_hazards_vec': np.array([0., 0., 0., 1., 0., 0.]),  # Vector representations when ground truth vector representations should be returned
 
         # Vases (objects we should not touch)
         'vases_num': 0,  # Number of vases in the world
@@ -290,6 +286,7 @@ class Engine(gym.Env, gym.utils.EzPickle):
         'vases_velocity_cost': 1.0,  # Cost (per step) per m/s of velocity for a vase
         'vases_velocity_threshold': 1e-4,  # Ignore very small velocities
         'vases_color': np.array([0, 1, 1, 1]),  # Object color
+        'vases_vec': np.array([0., 1., 0., 0., 0., 0.]),  # Vector representations when ground truth vector representations should be returned
 
         # Pillars (immovable obstacles we should not touch)
         'pillars_num': 0,  # Number of pillars in the world
@@ -300,6 +297,7 @@ class Engine(gym.Env, gym.utils.EzPickle):
         'pillars_height': 0.5,  # Half-height of pillars geoms
         'pillars_cost': 1.0,  # Cost (per step) for being in contact with a pillar
         'pillars_color': np.array([.5, .5, 1, 1]),  # Object color
+        'pillars_vec': np.array([0., 0., 1., 0., 0., 0.]),  # Vector representations when ground truth vector representations should be returned
 
         # Gremlins (moving objects we should avoid)
         'gremlins_num': 0,  # Number of gremlins in the world
@@ -544,7 +542,7 @@ class Engine(gym.Env, gym.utils.EzPickle):
                 obs_space_dict['buttons_gt'] = gym.spaces.Box(-np.inf, np.inf, (self.buttons_num * 3,), dtype=np.float32)
         if self.observe_groundtruth_vectors:
             obs_space_dict['vision'] = gym.spaces.Box(-np.inf, np.inf, (2 + self.hazards_num + self.sec_hazards_num + self.vases_num +
-                                                                        self.pillars_num, HAZARDS_VEC.shape[0] + 2), dtype=np.float32)
+                                                                        self.pillars_num, self.hazards_vec.shape[0] + 2), dtype=np.float32)
 
         # Flatten it ourselves
         self.obs_space_dict = obs_space_dict
@@ -1236,26 +1234,26 @@ class Engine(gym.Env, gym.utils.EzPickle):
             num_objects = 6  # number of all constrainable objects
             obs['vision'] = []
 
-            robot_gt = np.concatenate([np.expand_dims(AGENT_VEC, axis=0), np.expand_dims(np.array(self.robot_pos)[:-1], axis=0)], axis=-1)
+            robot_gt = np.concatenate([np.expand_dims(self.robot_vec, axis=0), np.expand_dims(np.array(self.robot_pos)[:-1], axis=0)], axis=-1)
             obs['vision'].append(robot_gt)
 
-            goal_gt = np.concatenate([np.expand_dims(GOAL_VEC, axis=0), np.expand_dims(np.array(self.goal_pos)[:-1], axis=0)], axis=-1)
+            goal_gt = np.concatenate([np.expand_dims(self.goal_vec, axis=0), np.expand_dims(np.array(self.goal_pos)[:-1], axis=0)], axis=-1)
             obs['vision'].append(goal_gt)
 
             if self.hazards_num > 0:
-                hazards_gt = np.repeat(np.expand_dims(HAZARDS_VEC, axis=0), self.hazards_num, axis=0)
+                hazards_gt = np.repeat(np.expand_dims(self.hazards_vec, axis=0), self.hazards_num, axis=0)
                 hazards_gt = np.concatenate([hazards_gt, np.array(self.hazards_pos)[:, :-1]], axis=-1)
                 obs['vision'].append(hazards_gt)
             if self.sec_hazards_num > 0:
-                sec_hazards_gt = np.repeat(np.expand_dims(SEC_HAZARDS_VEC, axis=0), self.sec_hazards_num, axis=0)
+                sec_hazards_gt = np.repeat(np.expand_dims(self.sec_hazards_vec, axis=0), self.sec_hazards_num, axis=0)
                 sec_hazards_gt = np.concatenate([sec_hazards_gt, np.array(self.sec_hazards_pos)[:, :-1]], axis=1)
                 obs['vision'].append(sec_hazards_gt)
             if self.vases_num > 0:
-                vases_gt = np.repeat(np.expand_dims(VASES_VEC, axis=0), self.vases_num, axis=0)
+                vases_gt = np.repeat(np.expand_dims(self.vases_vec, axis=0), self.vases_num, axis=0)
                 vases_gt = np.concatenate([vases_gt, np.array(self.vases_pos)[:, :-1]], axis=-1)
                 obs['vision'].append(vases_gt)
             if self.pillars_num > 0:
-                pillars_gt = np.repeat(np.expand_dims(PILLARS_VEC, axis=0), self.pillars_num, axis=0)
+                pillars_gt = np.repeat(np.expand_dims(self.pillars_vec, axis=0), self.pillars_num, axis=0)
                 pillars_gt = np.concatenate([pillars_gt, np.array(self.pillars_pos)[:, :-1]], axis=-1)
                 obs['vision'].append(pillars_gt)
 
