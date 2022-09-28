@@ -542,7 +542,7 @@ class Engine(gym.Env, gym.utils.EzPickle):
                 obs_space_dict['buttons_gt'] = gym.spaces.Box(-np.inf, np.inf, (self.buttons_num * 3,), dtype=np.float32)
         if self.observe_groundtruth_vectors:
             obs_space_dict['vision'] = gym.spaces.Box(-np.inf, np.inf, (2 + self.hazards_num + self.sec_hazards_num + self.vases_num +
-                                                                        self.pillars_num, self.hazards_vec.shape[0] + 2), dtype=np.float32)
+                                                                        self.pillars_num, len(self.hazards_vec) + 2), dtype=np.float32)
 
         # Flatten it ourselves
         self.obs_space_dict = obs_space_dict
