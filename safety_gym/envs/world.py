@@ -248,8 +248,7 @@ class World:
             else:
                 body = xmltodict.parse('''
                     <body name="{name}" pos="{pos}" quat="{quat}"> 
-                        <freejoint name="{name}"/>
-                        <geom name="{name}" type="{type}" size="{size}" mass="0.12" friction="0.1 0.0001 0.00001"
+                        <geom name="{name}" type="{type}" size="{size}" mass="0.12"
                             rgba="{rgba}" group="{group}"/>
                     <site name="{name}" rgba="{rgba}"></site>
                     </body>
