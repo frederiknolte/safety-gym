@@ -292,13 +292,16 @@ class Engine(gym.Env, gym.utils.EzPickle):
         # Flatten it ourselves
         if self.observe_pos:
             obs_space_dict['robot_pos'] = gym.spaces.Box(-np.inf, np.inf, (1, 3,), dtype=np.float32)
-            obs_space_dict['balls_pos'] = gym.spaces.Box(-np.inf, np.inf, (self.balls_num, 3,), dtype=np.float32)
+            if self.balls_num > 0:
+                obs_space_dict['balls_pos'] = gym.spaces.Box(-np.inf, np.inf, (self.balls_num, 3,), dtype=np.float32)
         if self.observe_size:
             obs_space_dict['robot_size'] = gym.spaces.Box(-np.inf, np.inf, (1,), dtype=np.float32)
-            obs_space_dict['balls_size'] = gym.spaces.Box(-np.inf, np.inf, (self.balls_num,), dtype=np.float32)
+            if self.balls_num > 0:
+                obs_space_dict['balls_size'] = gym.spaces.Box(-np.inf, np.inf, (self.balls_num,), dtype=np.float32)
         if self.observe_color:
             obs_space_dict['robot_color'] = gym.spaces.Box(-np.inf, np.inf, (1, 4,), dtype=np.float32)
-            obs_space_dict['balls_color'] = gym.spaces.Box(-np.inf, np.inf, (self.balls_num, 4,), dtype=np.float32)
+            if self.balls_num > 0:
+                obs_space_dict['balls_color'] = gym.spaces.Box(-np.inf, np.inf, (self.balls_num, 4,), dtype=np.float32)
         self.obs_space_dict = obs_space_dict
         if self.observation_flatten:
             self.obs_flat_size = sum([np.prod(i.shape) for i in self.obs_space_dict.values()])
@@ -623,13 +626,16 @@ class Engine(gym.Env, gym.utils.EzPickle):
             obs['vision'] = self.obs_vision()
         if self.observe_pos:
             obs['robot_pos'] = np.array(self.robot_pos)
-            obs['balls_pos'] = np.array(self.balls_pos)
+            if self.balls_num > 0:
+                obs['balls_pos'] = np.array(self.balls_pos)
         if self.observe_size:
             obs['robot_size'] = np.array([self.robot_size,])
-            obs['balls_size'] = np.array([self.balls_size,] * self.balls_num)
+            if self.balls_num > 0:
+                obs['balls_size'] = np.array([self.balls_size,] * self.balls_num)
         if self.observe_color:
             obs['robot_color'] = np.array(self.robot_color)
-            obs['balls_color'] = np.array(self.balls_color)
+            if self.balls_num > 0:
+                obs['balls_color'] = np.array(self.balls_color)
         if self.observation_flatten:
             flat_obs = np.zeros(self.obs_flat_size)
             offset = 0

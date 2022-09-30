@@ -20,8 +20,11 @@ def make_movie(frames, path, filename, fps=24):
 
 
 def get_action(env, magnitude=60.):
-    selected_ball_id = np.random.randint(low=0, high=env.balls_num)
-    ball_pos = env.layout['ball'+str(selected_ball_id)]
+    if env.balls_num > 0:
+        selected_ball_id = np.random.randint(low=0, high=env.balls_num)
+        ball_pos = env.layout['ball'+str(selected_ball_id)]
+    else:
+        ball_pos = np.random.normal(0, 1, 2)
     robot_pos = env.layout['robot']
     pos_diff = ball_pos - robot_pos
     action_vector = pos_diff / np.sqrt(np.sum(pos_diff ** 2))
@@ -61,6 +64,7 @@ env.seed(42)
 # Settings for Dataset
 start_index = 0
 num_samples = 1000
+save_every = 1
 path = './data/train'
 os.makedirs(path, exist_ok=True)
 
@@ -72,10 +76,10 @@ for s in tqdm(range(start_index, start_index+num_samples)):
     action = get_action(env)
     action = np.tile(action, (balls_num+1,))
 
-    for i in range(500):
+    for i in range(250):
         contacts[-1] += get_contacts(env)
 
-        if i % 2 == 0:
+        if i % save_every == 0:
             state_i = np.empty((env.balls_num + 1, 0))
 
             if env.observe_vision:
@@ -83,13 +87,22 @@ for s in tqdm(range(start_index, start_index+num_samples)):
                 # plt.imshow(frames[-1])
                 # plt.show()
             if env.observe_pos:
-                positions = np.concatenate([obs['robot_pos'][:, :-1], obs['balls_pos'][:, :-1]], axis=0)
+                if env.balls_num > 0:
+                    positions = np.concatenate([obs['robot_pos'][:, :-1], obs['balls_pos'][:, :-1]], axis=0)
+                else:
+                    positions = obs['robot_pos'][:, :-1]
                 state_i = np.concatenate([state_i, positions], axis=-1)
             if env.observe_size:
-                sizes = np.concatenate([obs['robot_size'], obs['balls_size']], axis=0)[:, None]
+                if env.balls_num > 0:
+                    sizes = np.concatenate([obs['robot_size'], obs['balls_size']], axis=0)[:, None]
+                else:
+                    sizes = obs['robot_size'][:, None]
                 state_i = np.concatenate([state_i, sizes], axis=-1)
             if env.observe_color:
-                colors = np.concatenate([obs['robot_color'][:, :-1], obs['balls_color'][:, :-1]], axis=0)
+                if env.balls_num > 0:
+                    colors = np.concatenate([obs['robot_color'][:, :-1], obs['balls_color'][:, :-1]], axis=0)
+                else:
+                    colors = obs['robot_color'][:, :-1]
                 state_i = np.concatenate([state_i, colors], axis=-1)
             if 'accelerometer' in env.sensors_obs:
                 accelerometer = np.concatenate([obs[accelerometer_name][None, :-1] for accelerometer_name in ['accelerometer'] + [f'accelerometer_ball{i}' for i in range(balls_num)]], axis=0)
