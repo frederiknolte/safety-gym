@@ -20,7 +20,7 @@ import sys
 # For now this is mostly used for visualization.
 # This also affects the vision observation, so if training from pixels.
 # COLOR_agent = [[1., 0., 0., 1.], [0., 1., 0., 1.], [0., 0., 1., 1.]]
-COLOR_ball = [[1., 0.05, 0.05, 1.], [0.05, 1., 0.05, 1.], [0.05, 0.05, 1., 1.], [0.156, 0.768, 0.56, 1.], [0.6, 0.8, 0.045, 1.]]  # np.array([0, 1, 1, 1])
+COLOR_ball = [[1., 0.05, 0.05, 1.], [0.05, 1., 0.05, 1.], [0.05, 0.05, 1., 1.], [0.156, 0.768, 0.56, 1.], [0.6, 0.8, 0.045, 1.]]
 COLOR_WALL = np.array([.92, .92, .92, 0])
 COLOR_plane = [[0.8, 0.8, 0.8], [0.77, 0.56, 0.47], [0.22, 0.27, 0.47]]
 
@@ -101,6 +101,7 @@ class Engine(gym.Env, gym.utils.EzPickle):
         'robot_base': 'xmls/ball.xml',  # Which robot XML to use as the base
         'robot_rot': None,  # Override robot starting angle
         'robot_size': 0.4,
+        'robot_color': None,
 
         # Starting position distribution
         'randomize_layout': True,  # If false, set the random seed before layout to constant
@@ -153,6 +154,7 @@ class Engine(gym.Env, gym.utils.EzPickle):
         'balls_density': 1000.,  # Density of balls
         'balls_sink': 0.,  # Experimentally measured, based on size and density,
                              # how far balls "sink" into the floor.
+        'color_balls': {},  # Colors of balls
         # Mujoco has soft contacts, so balls slightly sink into the floor,
         # in a way which can be hard to precisely calculate (and varies with time)
         # Ignore some costs below a small threshold, to reduce noise.
@@ -456,10 +458,14 @@ class Engine(gym.Env, gym.utils.EzPickle):
         world_config['robot_xy'] = self.layout['robot']
 
         ball_colors_tmp = deepcopy(COLOR_ball)
-        color_id = self.rs.randint(low=0, high=len(ball_colors_tmp))
-        world_config['robot_rgba'] = ball_colors_tmp[color_id]
-        self.robot_color = [ball_colors_tmp[color_id]]
-        del ball_colors_tmp[color_id]
+
+        if self.robot_color is None:
+            color_id = self.rs.randint(low=0, high=len(ball_colors_tmp))
+            world_config['robot_rgba'] = ball_colors_tmp[color_id]
+            self.robot_color = [ball_colors_tmp[color_id]]
+            del ball_colors_tmp[color_id]
+        else:
+            world_config['robot_rgba'] = self.robot_color[0]
 
         world_config['robot_size'] = self.robot_size
 
@@ -478,11 +484,15 @@ class Engine(gym.Env, gym.utils.EzPickle):
 
         # Extra objects to add to the scene
         world_config['objects'] = {}
-        self.color_balls = {}
         if self.balls_num:
             for i in range(self.balls_num):
-                color_id = self.rs.randint(low=0, high=len(ball_colors_tmp))
                 name = f'ball{i}'
+
+                if name not in self.color_balls.keys():
+                    color_id = self.rs.randint(low=0, high=len(ball_colors_tmp))
+                    self.color_balls[name] = ball_colors_tmp[color_id]
+                    del ball_colors_tmp[color_id]
+
                 object = {'name': name,
                           'size': np.ones(3) * self.balls_size,
                           'type': 'sphere',
@@ -491,10 +501,8 @@ class Engine(gym.Env, gym.utils.EzPickle):
                           'pos': np.r_[self.layout[name], self.balls_size - self.balls_sink],
                           'rot': self.random_rot(),
                           'group': GROUP_ball,
-                          'rgba': ball_colors_tmp[color_id]}
+                          'rgba': self.color_balls[name]}
                 world_config['objects'][name] = object
-                self.color_balls[name] = ball_colors_tmp[color_id]
-                del ball_colors_tmp[color_id]
 
         # Extra geoms (immovable objects) to add to the scene
         world_config['geoms'] = {}
