@@ -117,6 +117,7 @@ class World:
         # Convenience accessor for xml dictionary
         worldbody = self.xml['mujoco']['worldbody']
         sensor = self.xml['mujoco']['sensor']
+        actuator = self.xml['mujoco']['actuator']
 
         # Move robot position to starting position
         worldbody['body']['@pos'] = convert(np.r_[self.robot_xy, self.robot.z_height])
@@ -251,6 +252,8 @@ class World:
                         <geom name="{name}" type="{type}" size="{size}" mass="0.12"
                             rgba="{rgba}" group="{group}"/>
                     <site name="{name}" rgba="{rgba}"></site>
+                    <joint type="slide" axis="1 0 0" name="x{name}" damping="0.0"/>
+                    <joint type="slide" axis="0 1 0" name="y{name}" damping="0.0"/>
                     </body>
                 '''.format(**{k: convert(v) for k, v in object.items()}))
 
@@ -262,6 +265,16 @@ class World:
                                                 '''.format(**{k: convert(v) for k, v in object.items()}))
                 sensor['accelerometer'].append(accelerometer['accelerometer'])
                 sensor['velocimeter'].append(velocimeter['velocimeter'])
+
+                motor1 = xmltodict.parse('''
+                                    <motor gear="1.5 0 0 0 0 0" site="{name}" name="x{name}"/>
+                                    '''.format(**{k: convert(v) for k, v in object.items()}))
+                motor2 = xmltodict.parse('''
+                                    <motor gear="0 1.5 0 0 0 0" site="{name}" name="y{name}"/>
+                                    '''.format(**{k: convert(v) for k, v in object.items()}))
+                actuator['motor'].append(motor1['motor'])
+                actuator['motor'].append(motor2['motor'])
+
             # Append new body to world, making it a list optionally
             # Add the object to the world
             worldbody['body'].append(body['body'])

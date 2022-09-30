@@ -184,7 +184,7 @@ class Engine(gym.Env, gym.utils.EzPickle):
         # Load up a simulation of the robot, just to figure out observation space
         self.robot = Robot(self.robot_base)
 
-        self.action_space = gym.spaces.Box(-1, 1, (self.robot.nu,), dtype=np.float32)
+        self.action_space = gym.spaces.Box(-1, 1, (self.robot.nu * (self.balls_num + 1),), dtype=np.float32)
         self.build_observation_space()
         self.build_placements_dict()
 

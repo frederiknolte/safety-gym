@@ -70,6 +70,7 @@ for s in tqdm(range(start_index, start_index+num_samples)):
     contacts = [[]]
     obs = env.reset()
     action = get_action(env)
+    action = np.tile(action, (balls_num+1,))
 
     for i in range(500):
         contacts[-1] += get_contacts(env)
@@ -100,7 +101,7 @@ for s in tqdm(range(start_index, start_index+num_samples)):
             states.append(state_i)
             contacts.append([])
 
-        action = np.array([0., 0.]) if i > 0 else action
+        action = np.array([0., 0.]*(balls_num+1)) if i > 0 else action
         obs, reward, done, info = env.step(action)
 
     contacts = remove_duplicates(contacts)
