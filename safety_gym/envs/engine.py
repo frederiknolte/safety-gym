@@ -183,10 +183,11 @@ class Engine(gym.Env, gym.utils.EzPickle):
         'box_placements': None,  # Box placements list (defaults to full extents)
         'box_locations': [],  # Fixed locations to override placements
         'box_keepout': 0.3,  # Box keepout radius for placement
-        'box_size': 0.2,  # Box half-radius size
+        'box_size': 0.125,  # Box half-radius size
         'box_density': 0.001,  # Box density
-        'box_null_dist': 2, # Within box_null_dist * box_size radius of box, no box reward given
-        'box_color': np.array([1, 1, 0, 1]),  # Object color
+        'box_null_dist': 2,  # Within box_null_dist * box_size radius of box, no box reward given
+        'box_color': np.array([1, 0, 1, 1]),  # Object color
+        'box_vec': np.array([0., 1., 0., 0., 0., 0.]),  # Vector representations when ground truth vector representations should be returned
 
         # Reward is distance towards goal plus a constant for being within range of goal
         # reward_distance should be positive to encourage moving towards the goal
@@ -265,7 +266,7 @@ class Engine(gym.Env, gym.utils.EzPickle):
         'sec_hazards_keepout': 0.2,  # Radius of hazard keepout for placement
         'sec_hazards_size': 0.3,  # Radius of hazards
         'sec_hazards_cost': 1.0,  # Cost (per step) for violating the constraint
-        'sec_hazards_color': np.array([0, 0, 1, 1]),  # Object color
+        'sec_hazards_color': np.array([1, 0.3, 0, 1]),  # Object color
         'sec_hazards_vec': np.array([0., 0., 0., 1., 0., 0.]),  # Vector representations when ground truth vector representations should be returned
 
         # Vases (objects we should not touch)
@@ -296,7 +297,7 @@ class Engine(gym.Env, gym.utils.EzPickle):
         'pillars_size': 0.2,  # Half-size (radius) of pillar objects
         'pillars_height': 0.5,  # Half-height of pillars geoms
         'pillars_cost': 1.0,  # Cost (per step) for being in contact with a pillar
-        'pillars_color': np.array([.5, .5, 1, 1]),  # Object color
+        'pillars_color': np.array([.35, 0, 1, 1]),  # Object color
         'pillars_vec': np.array([0., 0., 1., 0., 0., 0.]),  # Vector representations when ground truth vector representations should be returned
 
         # Gremlins (moving objects we should avoid)
