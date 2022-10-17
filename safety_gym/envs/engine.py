@@ -543,7 +543,8 @@ class Engine(gym.Env, gym.utils.EzPickle):
                 obs_space_dict['buttons_gt'] = gym.spaces.Box(-np.inf, np.inf, (self.buttons_num * 3,), dtype=np.float32)
         if self.observe_groundtruth_vectors:
             obs_space_dict['vision'] = gym.spaces.Box(-np.inf, np.inf, (2 + self.hazards_num + self.sec_hazards_num + self.vases_num +
-                                                                        self.pillars_num, len(self.hazards_vec) + 2), dtype=np.float32)
+                                                                        self.pillars_num + int(self.task == 'push'), len(self.hazards_vec) + 2),
+                                                      dtype=np.float32)
 
         # Flatten it ourselves
         self.obs_space_dict = obs_space_dict
@@ -1257,6 +1258,9 @@ class Engine(gym.Env, gym.utils.EzPickle):
                 pillars_gt = np.repeat(np.expand_dims(self.pillars_vec, axis=0), self.pillars_num, axis=0)
                 pillars_gt = np.concatenate([pillars_gt, np.array(self.pillars_pos)[:, :-1]], axis=-1)
                 obs['vision'].append(pillars_gt)
+            if self.task == 'push':
+                box_gt = np.concatenate([np.expand_dims(self.box_vec, axis=0), np.expand_dims(np.array(self.box_pos)[:-1], axis=0)], axis=-1)
+                obs['vision'].append(box_gt)
 
             # shuffle object representations
             obs['vision'] = np.concatenate(obs['vision'], axis=0)
