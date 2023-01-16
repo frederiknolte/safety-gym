@@ -178,7 +178,7 @@ class Engine(gym.Env, gym.utils.EzPickle):
         'goal_size': 0.3,  # Radius of the goal area (if using task 'goal')
         'goal_color': np.array([0, 1, 0, 1]),  # Object color
         'goal_vec': np.array([0., 0., 0., 0., 0., 1.]),  # Vector representations when ground truth vector representations should be returned
-
+        
         # Box parameters (only used if task == 'push')
         'box_placements': None,  # Box placements list (defaults to full extents)
         'box_locations': [],  # Fixed locations to override placements
@@ -320,6 +320,9 @@ class Engine(gym.Env, gym.utils.EzPickle):
         'frameskip_binom_p': 1.0,  # Probability of trial return (controls distribution)
 
         '_seed': None,  # Random state seed (avoid name conflict with self.seed)
+
+        # Whether any hazard has been touched
+        'touched': False
     }
 
     def __init__(self, config={}):
@@ -376,7 +379,7 @@ class Engine(gym.Env, gym.utils.EzPickle):
     @property
     def goal_pos(self):
         ''' Helper to get goal position from layout '''
-        if self.task in ['goal', 'push']:
+        if self.task in ['goal', 'push', 'two_goals']:
             return self.data.get_body_xpos('goal').copy()
         elif self.task == 'button':
             return self.data.get_body_xpos(f'button{self.goal_button}').copy()
@@ -597,7 +600,7 @@ class Engine(gym.Env, gym.utils.EzPickle):
         placements.update(self.placements_dict_from_object('robot'))
         placements.update(self.placements_dict_from_object('wall'))
 
-        if self.task in ['goal', 'push']:
+        if self.task in ['goal', 'push', 'two_goals']:
             placements.update(self.placements_dict_from_object('goal'))
         if self.task == 'push':
             placements.update(self.placements_dict_from_object('box'))
@@ -768,7 +771,7 @@ class Engine(gym.Env, gym.utils.EzPickle):
 
         # Extra geoms (immovable objects) to add to the scene
         world_config['geoms'] = {}
-        if self.task in ['goal', 'push']:
+        if self.task in ['goal', 'push', 'two_goals']:
             geom = {'name': 'goal',
                     'size': [self.goal_size, self.goal_size / 2],
                     'pos': np.r_[self.layout['goal'], self.goal_size / 2 + 1e-2],
@@ -887,9 +890,11 @@ class Engine(gym.Env, gym.utils.EzPickle):
 
     def build_goal(self):
         ''' Build a new goal position, maybe with resampling due to hazards '''
-        if self.task == 'goal':
+        if self.task == 'goal' or self.task == 'two_goals':
             self.build_goal_position()
             self.last_dist_goal = self.dist_goal()
+            self.last_dist_first_goal = self.dist_min_hazard()
+            self.touched = False
         elif self.task == 'push':
             self.build_goal_position()
             self.last_dist_goal = self.dist_goal()
@@ -990,6 +995,9 @@ class Engine(gym.Env, gym.utils.EzPickle):
     def dist_goal(self):
         ''' Return the distance from the robot to the goal XY position '''
         return self.dist_xy(self.goal_pos)
+    
+    def dist_min_hazard(self):
+        return min([self.dist_xy(pos) for pos in self.hazards_pos])
 
     def dist_box(self):
         ''' Return the distance from the robot to the box (in XY plane only) '''
@@ -1008,7 +1016,7 @@ class Engine(gym.Env, gym.utils.EzPickle):
             pos = pos[:2]
         robot_pos = self.world.robot_pos()
         return np.sqrt(np.sum(np.square(pos - robot_pos[:2])))
-
+    
     def world_xy(self, pos):
         ''' Return the world XY vector to a position from the robot '''
         assert pos.shape == (2,)
@@ -1364,6 +1372,14 @@ class Engine(gym.Env, gym.utils.EzPickle):
             return self.dist_goal() <= self.goal_size #+ 0.08  # TODO remove 0.08
         if self.task == 'push':
             return self.dist_box_goal() <= self.goal_size
+        if self.task == 'two_goals':
+            print(f'Touched {self.touched}')
+            if not self.touched:
+                self.touched = self.dist_min_hazard() <= self.hazards_size
+                self.last_dist_goal = self.dist_goal()
+                return False
+            else:
+                return self.dist_goal() <= self.goal_size
         if self.task == 'button':
             for contact in self.data.contact[:self.data.ncon]:
                 geom_ids = [contact.geom1, contact.geom2]
@@ -1482,6 +1498,17 @@ class Engine(gym.Env, gym.utils.EzPickle):
             dist_goal = self.dist_goal()
             reward += (self.last_dist_goal - dist_goal) * self.reward_distance
             self.last_dist_goal = dist_goal
+        
+        if self.task in ['two_goals']:
+            if not self.touched:
+                dist_first_goal = self.dist_min_hazard()
+                reward += (self.last_dist_first_goal-dist_first_goal) * self.reward_distance
+                self.last_dist_first_goal = dist_first_goal
+            else:
+                dist_goal = self.dist_goal()
+                reward += (self.last_dist_goal - dist_goal) * self.reward_distance
+                self.last_dist_goal = dist_goal
+                
         # Distance from robot to box
         if self.task == 'push':
             dist_box = self.dist_box()
