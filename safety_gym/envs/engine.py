@@ -343,6 +343,7 @@ class Engine(gym.Env, gym.utils.EzPickle):
 
         self.viewer = None
         self.world = None
+        self.removed_hazard = []
         self.clear()
 
         self.seed(self._seed)
@@ -428,7 +429,7 @@ class Engine(gym.Env, gym.utils.EzPickle):
     @property
     def hazards_pos(self):
         ''' Helper to get the hazards positions from layout '''
-        return [self.data.get_body_xpos(f'hazard{i}').copy() for i in range(self.hazards_num)]
+        return [self.data.get_body_xpos(f'hazard{i}').copy() for i in range(self.hazards_num) if i not in self.removed_hazard]
 
     @property
     def sec_hazards_pos(self):
@@ -710,6 +711,21 @@ class Engine(gym.Env, gym.utils.EzPickle):
         ''' Use internal random state to get a random rotation in radians '''
         return self.rs.uniform(0, 2 * np.pi)
 
+    def update_world_config(self,object_to_delete:str):
+        # This updates the world config after the first
+        # goal has been reached in the two goals task
+        
+        if self.task in ["two_goals"]:
+            # Delete object out of world config
+            for obj in self.world_config_dict['geoms']:
+                if object_to_delete==obj:
+                    del self.world_config_dict['geoms'][obj]
+                    break
+            # Rebuild the world
+            self.world.rebuild(self.world_config_dict)
+        else:
+            raise NotImplementedError('This method should only be called in the two_goals task')
+
     def build_world_config(self):
         ''' Create a world_config from our own config '''
         # TODO: parse into only the pieces we want/need
@@ -893,7 +909,7 @@ class Engine(gym.Env, gym.utils.EzPickle):
         if self.task == 'goal' or self.task == 'two_goals':
             self.build_goal_position()
             self.last_dist_goal = self.dist_goal()
-            self.last_dist_first_goal = self.dist_min_hazard()
+            self.last_dist_first_goal, _ = self.dist_min_hazard()
             self.touched = False
         elif self.task == 'push':
             self.build_goal_position()
@@ -988,7 +1004,7 @@ class Engine(gym.Env, gym.utils.EzPickle):
 
         # Reset stateful parts of the environment
         self.first_reset = False  # Built our first world successfully
-
+        self.removed_hazard = []
         # Return an observation
         return self.obs()
 
@@ -997,7 +1013,8 @@ class Engine(gym.Env, gym.utils.EzPickle):
         return self.dist_xy(self.goal_pos)
     
     def dist_min_hazard(self):
-        return min([self.dist_xy(pos) for pos in self.hazards_pos])
+        distances = [self.dist_xy(pos) for pos in self.hazards_pos]
+        return min(distances), np.argmin(distances)
 
     def dist_box(self):
         ''' Return the distance from the robot to the box (in XY plane only) '''
@@ -1373,9 +1390,12 @@ class Engine(gym.Env, gym.utils.EzPickle):
         if self.task == 'push':
             return self.dist_box_goal() <= self.goal_size
         if self.task == 'two_goals':
-            print(f'Touched {self.touched}')
             if not self.touched:
-                self.touched = self.dist_min_hazard() <= self.hazards_size
+                min_dist, touched_hazard = self.dist_min_hazard()
+                self.touched = min_dist <= self.hazards_size
+                if self.touched:
+                    self.update_world_config(f'hazard{touched_hazard}')
+                    self.removed_hazard = [touched_hazard]
                 self.last_dist_goal = self.dist_goal()
                 return False
             else:
@@ -1501,7 +1521,7 @@ class Engine(gym.Env, gym.utils.EzPickle):
         
         if self.task in ['two_goals']:
             if not self.touched:
-                dist_first_goal = self.dist_min_hazard()
+                dist_first_goal, _ = self.dist_min_hazard()
                 reward += (self.last_dist_first_goal-dist_first_goal) * self.reward_distance
                 self.last_dist_first_goal = dist_first_goal
             else:
@@ -1542,6 +1562,7 @@ class Engine(gym.Env, gym.utils.EzPickle):
         if self.reward_orientation:
             zalign = quat2zalign(self.data.get_body_xquat(self.reward_orientation_body))
             reward += self.reward_orientation_scale * zalign
+            
         # Clip reward
         if self.reward_clip:
             in_range = reward < self.reward_clip and reward > -self.reward_clip

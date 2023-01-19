@@ -331,6 +331,7 @@ class World:
             self.viewer.update_sim(self.sim)
             self.update_viewer_sim = False
         self.viewer.render()
+    
 
     def robot_com(self):
         ''' Get the position of the robot center of mass in the simulator world reference frame '''
