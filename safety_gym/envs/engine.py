@@ -343,7 +343,6 @@ class Engine(gym.Env, gym.utils.EzPickle):
 
         self.viewer = None
         self.world = None
-        self.removed_hazard = []
         self.clear()
 
         self.seed(self._seed)
@@ -429,7 +428,7 @@ class Engine(gym.Env, gym.utils.EzPickle):
     @property
     def hazards_pos(self):
         ''' Helper to get the hazards positions from layout '''
-        return [self.data.get_body_xpos(f'hazard{i}').copy() for i in range(self.hazards_num) if i not in self.removed_hazard]
+        return [self.data.get_body_xpos(f'hazard{i}').copy() for i in range(self.hazards_num)]
 
     @property
     def sec_hazards_pos(self):
@@ -549,7 +548,9 @@ class Engine(gym.Env, gym.utils.EzPickle):
             obs_space_dict['vision'] = gym.spaces.Box(-np.inf, np.inf, (2 + self.hazards_num + self.sec_hazards_num + self.vases_num +
                                                                         self.pillars_num + int(self.task == 'push'), len(self.hazards_vec) + 2),
                                                       dtype=np.float32)
-
+        if self.task=="two_goals":
+            obs_space_dict['touched'] = gym.spaces.Discrete(2)
+            
         # Flatten it ourselves
         self.obs_space_dict = obs_space_dict
         if self.observation_flatten:
@@ -1004,7 +1005,6 @@ class Engine(gym.Env, gym.utils.EzPickle):
 
         # Reset stateful parts of the environment
         self.first_reset = False  # Built our first world successfully
-        self.removed_hazard = []
         # Return an observation
         return self.obs()
 
@@ -1300,6 +1300,14 @@ class Engine(gym.Env, gym.utils.EzPickle):
                 flat_obs[offset:offset + k_size] = obs[k].flat
                 offset += k_size
             obs = flat_obs
+        
+        if self.task in ["two_goals"]:
+            if self.touched:
+                obs['touched'] = 1
+            else:
+                obs['touched'] = 0
+
+
         assert self.observation_space.contains(obs), f'Bad obs {obs} {self.observation_space}'
         return obs
 
@@ -1393,9 +1401,6 @@ class Engine(gym.Env, gym.utils.EzPickle):
             if not self.touched:
                 min_dist, touched_hazard = self.dist_min_hazard()
                 self.touched = min_dist <= self.hazards_size
-                if self.touched:
-                    self.update_world_config(f'hazard{touched_hazard}')
-                    self.removed_hazard = [touched_hazard]
                 self.last_dist_goal = self.dist_goal()
                 return False
             else:
